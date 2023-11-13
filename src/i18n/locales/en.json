@@ -1,0 +1,85 @@
+{
+  "menu": {
+    "main": "Home",
+    "duo": "Duo",
+    "rank": "Rank",
+    "aram": "ARAM",
+    "selectedRole": "Role",
+    "about": "About"
+  },
+  "main": {
+    "acceptMatchmaking": "Accept Matchmaking",
+    "declineMatchmaking": "Decline Matchmaking",
+    "forceKillLoL": "Force Close LOL",
+    "autoAccept": "Auto Accept Match",
+    "displayTeammateScore": "Display Teammate Score during Champion Selection",
+    "showTeammateRankedType": {
+      "soloDuo": "Solo/Duo",
+      "flex": "Flex",
+      "both": "Solo/Duo/Flex"
+    },
+    "modifyHovercard": "Modify Hovercard",
+    "rankedType": {
+      "soloDuo": "Solo/Duo",
+      "flex": "Flex",
+      "flexSR": "Flex 5x5",
+      "flexTT": "Flex 3x3",
+      "tft": "Teamfight Tactics",
+      "tftDoubleUp": "TFT: Double Up",
+      "tftTurbo": "TFT: Turbo"
+    },
+    "tierType": {
+      "challenger": "Challenger",
+      "grandmaster": "Grandmaster",
+      "master": "Master",
+      "diamond": "Diamond",
+      "platinum": "Platinum",
+      "gold": "Gold",
+      "silver": "Silver",
+      "bronze": "Bronze",
+      "iron": "Iron"
+    },
+    "appStates": {
+      "lolNotOpen": "LoL not open",
+      "lolClosed": "LoL closed",
+      "lolStarting": "LoL starting"
+    },
+    "closedProcessesCount": "Closed {{count}} processes"
+  },
+  "gamePhases": {
+    "none": "Game Lobby",
+    "lobby": "In Lobby",
+    "matchmaking": "Matchmaking",
+    "readyCheck": "Ready Check",
+    "champSelect": "Champion Selection",
+    "gameStart": "Game Start",
+    "inProgress": "In Progress",
+    "preEndOfGame": "Pre-End of Game",
+    "endOfGame": "End of Game"
+  },
+  "aram": {
+    "alwaysOnTop": "Always On Top",
+    "clear": "Clear",
+    "champion": "Champion",
+    "summoner": "Summoner",
+    "isYou": "You"
+  },
+  "about": {
+    "author": "Author",
+    "currentVersion": "Current Version",
+    "latestVersion": "Latest Version",
+    "help": "If you find this project useful, consider giving it a star ⭐\uFE0F！\n<br/>\nYour support is highly appreciated！\n",
+    "github": "View on GitHub"
+  },
+  "common": {
+    "teamOne": "Blue Team",
+    "teamTwo": "Red Team",
+    "premade": {
+      "solo": "Solo",
+      "duo": "Duo",
+      "trio": "Trio",
+      "quad": "Quad",
+      "quint": "Quint"
+    }
+  }
+}
