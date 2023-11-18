@@ -1,12 +1,11 @@
 import React, {useState, useEffect, useContext} from 'react';
-import {Button, Space, Switch, Radio, Row, Col, message, Image, Select} from "antd";
+import {Button, Space, Switch, Radio, Row, Col, message, Select} from "antd";
 import ApiUtils from "../api/api-utils";
 import {connect} from "react-redux";
 import {showTeammateRankedType} from "../redux/reducers/ConfigReducer";
 import withErrorBoundary from "./error/withErrorBoundary";
 import Hovercard from "./main/Hovercard";
 import {useTranslation} from 'react-i18next';
-import languageChange from '../resources/language-change.png'
 import {language} from "../redux/reducers/ConfigReducer";
 import {ThemeContext} from '../theme';
 
@@ -91,7 +90,7 @@ function Main(props) {
             </Button>
             <Select
                 id="themeSelector"
-                defaultValue={themeContext.current}
+                defaultValue={themeContext.theme}
                 options={
                   [
                     { value: 'light', label: '☀️'},
