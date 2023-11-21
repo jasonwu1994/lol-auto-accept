@@ -1,4 +1,4 @@
-const {app, BrowserWindow, ipcMain, Menu, Tray, shell} = require('electron')
+const {app, BrowserWindow, ipcMain, Menu, Tray, shell, nativeTheme} = require('electron')
 const path = require('path');
 const LCUConnector = require('lcu-connector');
 const RiotWSProtocol = require('./lcu-ws.js');
@@ -223,6 +223,12 @@ function handleOnGameflowPhase(payload) {
   const phase = payload.data;
   handleGamePhase(phase)
 }
+
+ipcMain.handle('switch-native-theme', (_, message) => {
+    if (['dark', 'light', 'system'].includes(message)) {
+        nativeTheme.themeSource = message
+    }
+})
 
 ipcMain.on('get-auth', (ev, data) => {
   ev.reply('auth', global.auth)

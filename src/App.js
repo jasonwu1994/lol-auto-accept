@@ -8,6 +8,7 @@ import {gamePhaseToAppState} from "./redux/reducers/GameReducer";
 import {addSummoner} from "./components/ARAM";
 import store from './redux/store'
 import {useTranslation} from 'react-i18next';
+import {ThemeProvider} from './theme';
 
 
 const {ipcRenderer} = window.require('electron');
@@ -230,24 +231,26 @@ const App = (props) => {
   }
 
   return (
-    <Layout>
-      {
-        ApiUtils.checkIsDev() &&
-        <>
-          <Button onClick={async () => {
-            let res = await ApiUtils.getSummonersById(100529833)
-            console.log(res)
-          }
-          }>test</Button>
+      <ThemeProvider>
+        <Layout>
+        {
+            ApiUtils.checkIsDev() &&
+            <>
+            <Button onClick={async () => {
+                let res = await ApiUtils.getSummonersById(100529833)
+                console.log(res)
+            }
+            }>test</Button>
 
-          <Button onClick={() => {
-            console.log("store ", store.getState())
-          }}>
-            config
-          </Button>
-        </>
-      }
-    </Layout>
+            <Button onClick={() => {
+                console.log("store ", store.getState())
+            }}>
+                config
+            </Button>
+            </>
+        }
+        </Layout>
+      </ThemeProvider>
   )
 };
 
