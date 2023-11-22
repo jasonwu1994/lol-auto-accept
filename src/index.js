@@ -6,6 +6,7 @@ import store from './redux/store'
 import ApiUtils from "./api/api-utils";
 import "./i18n/i18n";
 import {BrowserRouter} from 'react-router-dom';
+import ThemeProvider from './theme';
 
 process.on('uncaughtException', (error) => {
   console.error('Uncaught exception:', error);
@@ -21,7 +22,9 @@ ApiUtils.setStore(store)
 root.render(
   <Provider store={store}>
     <BrowserRouter>
-      <App/>
+      <ThemeProvider>
+        <App/>
+      </ThemeProvider>
     </BrowserRouter>
   </Provider>
 );

@@ -5,7 +5,8 @@ const ConfigReducer = (prevState = {
   isHovercard: true,
   hovercardTierType: tierType.CHALLENGER,
   hovercardRankedType: rankedType.SOLO,
-  language: language.zh
+  language: language.zh,
+  isDarkMode: localStorage.getItem('theme') === 'dark' ? true : false
 }, action) => {
   let newState = {...prevState}
   switch (action.type) {
@@ -32,6 +33,9 @@ const ConfigReducer = (prevState = {
       return newState
     case "change-language":
       newState.language = action.data
+      return newState
+    case "change-isDarkMode":
+      newState.isDarkMode = action.data
       return newState
     default:
       return prevState
@@ -68,6 +72,12 @@ export const tierType = Object.freeze({
 export const language = Object.freeze({
   zh: "zh",
   en: "en"
+})
+
+export const themeType = Object.freeze({
+  DARK: "dark",
+  LIGHT: "light",
+  SYSTEM: "system"
 })
 
 export default ConfigReducer

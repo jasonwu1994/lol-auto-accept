@@ -1,64 +1,33 @@
+import {useEffect} from 'react'
+import {ConfigProvider, theme as AntdTheme} from 'antd'
+import {connect} from "react-redux";
+import {themeType} from "./redux/reducers/ConfigReducer";
 
-import { useEffect, createContext, useState } from 'react'
-import { ConfigProvider, theme as AntdTheme, Button, Card } from 'antd'
+const {ipcRenderer} = window.require('electron')
 
-const { ipcRenderer } = window.require('electron')
+const ThemeProviderInner = ({children, isDarkMode}) => {
+  const {defaultAlgorithm, darkAlgorithm} = AntdTheme
 
-const MatchMediaDark = typeof matchMedia !== 'undefined' ? matchMedia?.('(prefers-color-scheme:dark)') : undefined
-// init theme
-const storageTheme = localStorage.getItem('theme') ?? 'system'
-const isDark = storageTheme === 'system' ? MatchMediaDark.matches : storageTheme === 'dark'
+  useEffect(() => {
+    ipcRenderer.send('switch-native-theme', isDarkMode ? themeType.DARK : themeType.LIGHT)
+    localStorage.setItem('theme', isDarkMode ? themeType.DARK : themeType.LIGHT)
+  }, [isDarkMode])
 
-export const ThemeContext = createContext()
-
-export const ThemeProvider = ({ children }) => {
-    const { defaultAlgorithm, darkAlgorithm } = AntdTheme
-
-    const [theme, setTheme] = useState(() => storageTheme ?? 'system')
-    const [current, setCurrent] = useState(() => isDark ? 'dark' : 'light')
-
-    const switchTheme = (value) => {
-        if (value && value !== theme) {
-            setTheme(value)
-        }
-    }
-
-    useEffect(() => {
-        ipcRenderer.invoke('switch-native-theme', theme)
-        localStorage.setItem('theme', theme)
-        if (theme === 'system') {
-            const isDark = MatchMediaDark?.matches
-            setCurrent(isDark ? 'dark' : 'light')
-        } else {
-            setCurrent(theme)
-        }
-        
-        const onSystemThemeChange = (matchMediaDark) => {
-            if (theme === 'system') {
-                setCurrent(matchMediaDark.matches ? 'dark' : 'light')
-            }
-        }
-
-        MatchMediaDark?.addEventListener('change', onSystemThemeChange)
-        return () => {
-            MatchMediaDark?.removeEventListener('change', onSystemThemeChange)
-        }
-    }, [theme])
-
-    return (
-        <ThemeContext.Provider
-            value={{
-                theme,
-                switchTheme,
-                current
-            }}
-        >
-            <ConfigProvider
-                theme={{
-                    algorithm: current === 'dark' ? darkAlgorithm : defaultAlgorithm,
-                }}>
-                {children}
-            </ConfigProvider>
-        </ThemeContext.Provider>
-    )
+  return (
+    <ConfigProvider theme={{algorithm: isDarkMode ? darkAlgorithm : defaultAlgorithm}}>
+      {children}
+    </ConfigProvider>
+  )
 }
+
+const mapStateToProps = (state) => {
+  return {
+    isDarkMode: state.ConfigReducer.isDarkMode
+  }
+}
+
+const ThemeProvider = connect(mapStateToProps)(({children, ...props}) => {
+  return <ThemeProviderInner {...props}>{children}</ThemeProviderInner>;
+});
+
+export default ThemeProvider;

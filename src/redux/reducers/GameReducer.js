@@ -5,6 +5,7 @@ const GameReducer = (prevState = {
   champSelectSession: {},
   chatRoomId: '',
   appState: translate('main.appStates.lolNotOpen'),
+  appStateKey: 'main.appStates.lolNotOpen',
   gamePhase: '',
   myTeam: [],
 }, action) => {
@@ -20,7 +21,8 @@ const GameReducer = (prevState = {
       newState.chatRoomId = action.data
       return newState
     case "change-appState":
-      newState.appState = action.data
+      newState.appState = translate(action.data)
+      newState.appStateKey = action.data
       return newState
     case "change-myTeam":
       newState.myTeam = action.data
@@ -36,23 +38,23 @@ const GameReducer = (prevState = {
 export function gamePhaseToAppState(phase) {
   switch (phase) {
     case 'None':
-      return translate('gamePhases.none')
+      return 'gamePhases.none'
     case 'Lobby':
-      return translate('gamePhases.lobby')
+      return 'gamePhases.lobby'
     case 'Matchmaking':
-      return translate('gamePhases.matchmaking')
+      return 'gamePhases.matchmaking'
     case 'ReadyCheck':
-      return translate('gamePhases.readyCheck')
+      return 'gamePhases.readyCheck'
     case 'ChampSelect':
-      return translate('gamePhases.champSelect')
+      return 'gamePhases.champSelect'
     case 'GameStart':
-      return translate('gamePhases.gameStart')
+      return 'gamePhases.gameStart'
     case 'InProgress':
-      return translate('gamePhases.inProgress')
+      return 'gamePhases.inProgress'
     case 'PreEndOfGame':
-      return translate('gamePhases.preEndOfGame')
+      return 'gamePhases.preEndOfGame'
     case 'EndOfGame':
-      return translate('gamePhases.endOfGame')
+      return 'gamePhases.endOfGame'
   }
 }
 

@@ -8,8 +8,6 @@ import {gamePhaseToAppState} from "./redux/reducers/GameReducer";
 import {addSummoner} from "./components/ARAM";
 import store from './redux/store'
 import {useTranslation} from 'react-i18next';
-import {ThemeProvider} from './theme';
-
 
 const {ipcRenderer} = window.require('electron');
 
@@ -72,11 +70,11 @@ const App = (props) => {
 
     ipcRenderer.on('lol-connect', async (event, data) => {
       console.log('Received message [lol-connect]:', data);
-      props.changeAppState(t('main.appStates.lolStarting'))
+      props.changeAppState('main.appStates.lolStarting')
     });
     ipcRenderer.on('lol-disconnect', async (event, data) => {
       console.log('Received message [lol-disconnect]:', data);
-      props.changeAppState(t('main.appStates.lolClosed'))
+      props.changeAppState('main.appStates.lolClosed')
     });
 
 
@@ -231,26 +229,24 @@ const App = (props) => {
   }
 
   return (
-      <ThemeProvider>
-        <Layout>
-        {
-            ApiUtils.checkIsDev() &&
-            <>
-            <Button onClick={async () => {
-                let res = await ApiUtils.getSummonersById(100529833)
-                console.log(res)
-            }
-            }>test</Button>
+    <Layout>
+      {
+        ApiUtils.checkIsDev() &&
+        <>
+          <Button onClick={async () => {
+            let res = await ApiUtils.getSummonersById(100529833)
+            console.log(res)
+          }
+          }>test</Button>
 
-            <Button onClick={() => {
-                console.log("store ", store.getState())
-            }}>
-                config
-            </Button>
-            </>
-        }
-        </Layout>
-      </ThemeProvider>
+          <Button onClick={() => {
+            console.log("store ", store.getState())
+          }}>
+            config
+          </Button>
+        </>
+      }
+    </Layout>
   )
 };
 

@@ -92,6 +92,7 @@ if (!gotSingleInstanceLock) {
       });
 
       initTray();
+      initTheme()
       createWindow(freePort);
       lolListener();
 
@@ -105,6 +106,19 @@ if (!gotSingleInstanceLock) {
       app.quit();
     }
   });
+}
+
+function initTheme() {
+  const config = store.get('config');
+  if (config && typeof config.isDarkMode !== 'undefined') {
+    nativeTheme.themeSource = config.isDarkMode ? 'dark' : 'light';
+    return;
+  }
+  if (nativeTheme.shouldUseDarkColors) {
+    nativeTheme.themeSource = 'dark'
+  } else {
+    nativeTheme.themeSource = 'light'
+  }
 }
 
 //創建主視窗
@@ -224,10 +238,10 @@ function handleOnGameflowPhase(payload) {
   handleGamePhase(phase)
 }
 
-ipcMain.handle('switch-native-theme', (_, message) => {
-    if (['dark', 'light', 'system'].includes(message)) {
-        nativeTheme.themeSource = message
-    }
+ipcMain.on('switch-native-theme', (_, message) => {
+  if (['dark', 'light'].includes(message)) {
+    nativeTheme.themeSource = message
+  }
 })
 
 ipcMain.on('get-auth', (ev, data) => {
@@ -358,5 +372,3 @@ function initTray() {
   ])
   tray.setContextMenu(contextMenu)
 }
-
-

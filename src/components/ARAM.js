@@ -4,6 +4,7 @@ import withErrorBoundary from "./error/withErrorBoundary";
 import ApiUtils from "../api/api-utils";
 import {Button, Image, Space, Switch, Table} from 'antd';
 import {useTranslation} from 'react-i18next';
+import ConfigReducer from "../redux/reducers/ConfigReducer";
 
 const {ipcRenderer} = window.require('electron');
 
@@ -171,9 +172,14 @@ function ARAM(props) {
           columns={columns}
           dataSource={props.myTeam.filter(s => s.championId !== 0)}
           pagination={false}
-          onRow={(record) => ({
-            style: record.isSelf === true ? {backgroundColor: '#E1F1E7'} : {},
-          })}
+          onRow={(record) => {
+            // console.log('isDarkMode:', props.isDarkMode);
+            return ({
+              style: record.isSelf === true ?
+                {backgroundColor: props.isDarkMode ? '#2C3E50' : '#E1F1E7'}
+                : {},
+            })
+          }}
         />
       }
     </div>
@@ -223,7 +229,8 @@ const mapStateToProps = (state) => {
   return {
     myTeam: state.GameReducer.myTeam,
     champSelectSession: state.GameReducer.champSelectSession,
-    gamePhase: state.GameReducer.gamePhase
+    gamePhase: state.GameReducer.gamePhase,
+    isDarkMode: state.ConfigReducer.isDarkMode
   }
 }
 const mapDispatchToProp = {
