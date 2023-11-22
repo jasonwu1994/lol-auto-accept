@@ -4,9 +4,6 @@ import {Trans, useTranslation} from 'react-i18next';
 import axios from 'axios';
 import logo from '../resources/logo.png'
 import {Image} from "antd";
-import languageChange from "../resources/language-change.png";
-import {language} from "../redux/reducers/ConfigReducer";
-
 
 const {ipcRenderer} = window.require('electron');
 const _package = require("../../package.json");
@@ -41,7 +38,7 @@ function About(props) {
         />
         <h1 style={{fontSize: "26px"}}>{t('about.author')}:jasonwu1994</h1>
         <div style={{marginBottom: 10}}>
-          <h3 style={{fontSize: "16px"}}>{t('about.currentVersion')}: {_package.version}</h3>
+          <h3 style={{fontSize: "16px"}}>{t('about.currentVersion')}: v{_package.version}</h3>
           <h3 style={{fontSize: "16px"}}>{t('about.latestVersion')}: {latestVersion === 'NaN' ? 'NaN' :
             <a href="" onClick={(event) => handleClickLink(event, releaseUrl)}>{latestVersion}</a>}
           </h3>
