@@ -4,6 +4,7 @@ import {Trans, useTranslation} from 'react-i18next';
 import axios from 'axios';
 import logo from '../resources/logo.png'
 import {Image} from "antd";
+import {trackEvent} from './GoogleAnalytics';
 
 const {ipcRenderer} = window.require('electron');
 const _package = require("../../package.json");
@@ -30,6 +31,18 @@ function About(props) {
     ipcRenderer.send('open-link', url);
   }
 
+  const parseVersion = (versionString) => {
+    try {
+      if (versionString.startsWith('v')) {
+        return versionString.substring(1);
+      }
+      return versionString;
+    } catch (error) {
+      console.error('Error parsing version string:', error);
+      return 'NaN';
+    }
+  };
+
   return (
     <div>
       <div style={{textAlign: "center"}}>
@@ -40,15 +53,26 @@ function About(props) {
         <div style={{marginBottom: 10}}>
           <h3 style={{fontSize: "16px"}}>{t('about.currentVersion')}: v{_package.version}</h3>
           <h3 style={{fontSize: "16px"}}>{t('about.latestVersion')}: {latestVersion === 'NaN' ? 'NaN' :
-            <a href="" onClick={(event) => handleClickLink(event, releaseUrl)}>{latestVersion}</a>}
+            <a href="" onClick={(event) => {
+              handleClickLink(event, releaseUrl)
+              trackEvent('click_latest_version', {
+                latest_version: parseVersion(latestVersion),
+                current_version: _package.version
+              })
+            }}>{latestVersion}</a>}
           </h3>
         </div>
         <p style={{fontSize: "16px"}}>
           <Trans i18nKey="about.help"></Trans>
           <br/>
           <a href="" style={{fontSize: "16px"}}
-             onClick={(event) => handleClickLink(event, 'https://github.com/jasonwu1994/lol-auto-accept')}>
-            {t('about.github')}
+             onClick={(event) => {
+               handleClickLink(event, 'https://github.com/jasonwu1994/lol-auto-accept')
+               trackEvent('click_view_github', {
+                 latest_version: parseVersion(latestVersion),
+                 current_version: _package.version
+               })
+             }}>{t('about.github')}
           </a>
         </p>
       </div>

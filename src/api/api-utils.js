@@ -9,7 +9,7 @@ class ApiUtils {
   static apiBaseUrl = ApiUtils.getApiBaseUrl();
 
   static checkIsDev() {
-    console.log("window.location.hostname:",window.location.hostname)
+    // console.log("window.location.hostname:",window.location.hostname)
     return window.location.hostname === 'localhost';
   }
 

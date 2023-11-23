@@ -8,8 +8,16 @@ import {gamePhaseToAppState} from "./redux/reducers/GameReducer";
 import {addSummoner} from "./components/ARAM";
 import store from './redux/store'
 import {useTranslation} from 'react-i18next';
+import {trackEvent} from './components/GoogleAnalytics';
 
 const {ipcRenderer} = window.require('electron');
+
+const formatDuration = (seconds) => {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainingSeconds = seconds % 60;
+  return `${hours}h ${minutes}m ${remainingSeconds}s`;
+}
 
 const App = (props) => {
   const {t, i18n} = useTranslation();
@@ -105,6 +113,7 @@ const App = (props) => {
       props.changeAppState(gamePhaseToAppState("ReadyCheck"))
       if (props.isAutoAccept) {
         ApiUtils.postAcceptMatchmaking();
+        trackEvent('auto_accept_match')
       }
     }
     ipcRenderer.on('ReadyCheck', handleEvent);
@@ -154,6 +163,8 @@ const App = (props) => {
         console.log('changeConfig ', data);
         props.changeConfig(data)
         i18n.changeLanguage(data.language)
+        props.changeAppState(props.appStateKey)
+        trackEvent('app_start', data)
         return
       }
       ipcRenderer.send('set-config', store.getState().ConfigReducer);
@@ -166,8 +177,21 @@ const App = (props) => {
 
 
   useEffect(() => {
+    const startTime = Date.now();
+    const sendCloseEvent = () => {
+      try {
+        const endTime = Date.now();
+        const durationInSeconds = Math.round((endTime - startTime) / 1000);
+        const durationFormatted = formatDuration(durationInSeconds);
+        trackEvent('app_close', {duration: durationInSeconds, duration_formatted: durationFormatted});
+      } catch (error) {
+        console.error('Error sending app_close event:', error);
+      }
+    };
+
     const handleEvent = (event, data) => {
       console.log('Received message [get-config] ', store.getState().ConfigReducer);
+      sendCloseEvent()
       ipcRenderer.send('set-config', store.getState().ConfigReducer);
     }
     ipcRenderer.on('get-config', handleEvent);
@@ -256,6 +280,7 @@ const mapStateToProps = (state) => {
     isShowTeammateRanked: state.ConfigReducer.isShowTeammateRanked,
     showTeammateRankedType: state.ConfigReducer.showTeammateRankedType,
     appState: state.GameReducer.appState,
+    appStateKey: state.GameReducer.appStateKey,
     myTeam: state.GameReducer.myTeam
   }
 }

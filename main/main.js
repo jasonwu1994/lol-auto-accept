@@ -17,6 +17,7 @@ global.auth = {};
 let mainWinId = null
 let win = undefined
 let tray = undefined
+let isClosing = false;
 global.timers = {
   authInterval: [],
   cancelInterval: []
@@ -28,7 +29,10 @@ if (!gotSingleInstanceLock) {
   app.quit();
 } else {
   app.on('second-instance', (event, commandLine, workingDirectory) => {
-    if (win) {
+    if (isClosing) {
+      app.relaunch()
+      app.exit();
+    } else if (win) {
       if (win.isMinimized()) win.restore()
       win.show()
       win.focus()
@@ -366,7 +370,13 @@ function initTray() {
     {
       label: 'Exit', type: 'normal', click: async () => {
         win.webContents.send('get-config');
-        app.exit()
+        tray.destroy()
+        win.hide()
+        isClosing = true
+        // 等待react完成銷毀，儲存config，最久不超過8秒
+        setTimeout(() => {
+          app.exit();
+        }, 8000);
       }
     }
   ])

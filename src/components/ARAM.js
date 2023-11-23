@@ -4,10 +4,9 @@ import withErrorBoundary from "./error/withErrorBoundary";
 import ApiUtils from "../api/api-utils";
 import {Button, Image, Space, Switch, Table} from 'antd';
 import {useTranslation} from 'react-i18next';
-import ConfigReducer from "../redux/reducers/ConfigReducer";
+import {trackEvent} from './GoogleAnalytics';
 
 const {ipcRenderer} = window.require('electron');
-
 const MAX_NAMES_SIZE = 200;
 
 function ARAM(props) {
@@ -55,6 +54,7 @@ function ARAM(props) {
           console.log(response.data);
           setSelectedRowKeys([]);
           setSelectedRows([]);
+          trackEvent('auto_swap_champion_aram')
         } catch (error) {
           console.error('Error in API request:', error);
         }
@@ -142,9 +142,10 @@ function ARAM(props) {
       <Space wrap>
         <label htmlFor="always-on-top-btn"
                style={{userSelect: "none", fontSize: 16, marginLeft: '10px'}}>{t('aram.alwaysOnTop')}</label>
-        <Switch id="always-on-top-btn" checked={props.isAutoAccept} onChange={(checked, event) => {
+        <Switch id="always-on-top-btn" defaultChecked={false} onChange={(checked, event) => {
           console.log(checked, event)
           ipcRenderer.send('always-on-top', '');
+          trackEvent('click_always_on_top')
         }}></Switch>
       </Space>
       {

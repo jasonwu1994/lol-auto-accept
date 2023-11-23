@@ -6,6 +6,7 @@ import {showTeammateRankedType, language} from "../redux/reducers/ConfigReducer"
 import withErrorBoundary from "./error/withErrorBoundary";
 import Hovercard from "./main/Hovercard";
 import {useTranslation} from 'react-i18next';
+import {trackEvent} from './GoogleAnalytics';
 
 const {ipcRenderer} = window.require('electron');
 
@@ -96,6 +97,7 @@ function Main(props) {
         <Space wrap>
           <Button type="primary" size="middle" onClick={() => {
             ApiUtils.postAcceptMatchmaking()
+            trackEvent('manual_accept_match');
           }
           }>
             {t('main.acceptMatchmaking')}
@@ -103,12 +105,14 @@ function Main(props) {
           <Button type="primary" size="middle" onClick={() => {
             props.changeIsAutoAccept(false)
             ApiUtils.postDeclineMatchmaking()
+            trackEvent('manual_decline_match');
           }}>
             {t('main.declineMatchmaking')}
           </Button>
           <Button type="primary" size="middle" loading={killLoLLoading} onClick={() => {
             ipcRenderer.send('kill-lol', '');
             setKillLoLLoading(true);
+            trackEvent('force_close_lol');
           }}>
             {t('main.forceKillLoL')}
           </Button>

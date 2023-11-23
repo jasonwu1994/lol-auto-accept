@@ -17,4 +17,12 @@ const GoogleAnalytics = ({measurementId}) => {
   return null;
 };
 
+export const trackEvent = (name, params = {}) => {
+  try {
+    ReactGA.event(name, params);
+  } catch (error) {
+    console.error('Error tracking event:', error);
+  }
+};
+
 export default GoogleAnalytics;
