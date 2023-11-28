@@ -10,6 +10,7 @@ import store from './redux/store'
 import {useTranslation} from 'react-i18next';
 import {trackEvent} from './components/GoogleAnalytics';
 
+const _package = require("../package.json");
 const {ipcRenderer} = window.require('electron');
 
 const formatDuration = (seconds) => {
@@ -157,6 +158,8 @@ const App = (props) => {
   }, [props.myTeam]);
 
   useEffect(() => {
+    const currentVersion = _package.version; // 確保這裡能正確獲取到版本號
+
     const handleEvent = (event, data) => {
       console.log('Received message [set-config]:', data);
       if (data) {
@@ -164,10 +167,12 @@ const App = (props) => {
         props.changeConfig(data)
         i18n.changeLanguage(data.language)
         props.changeAppState(props.appStateKey)
-        trackEvent('app_start', data)
-        return
+        const eventData = {...data, version: currentVersion};
+        trackEvent('app_start', eventData);
+      } else {
+        trackEvent('app_start', {version: currentVersion});
+        ipcRenderer.send('set-config', store.getState().ConfigReducer); // 給預設設定檔
       }
-      ipcRenderer.send('set-config', store.getState().ConfigReducer);
     }
     ipcRenderer.on('set-config', handleEvent);
     return () => {
@@ -246,7 +251,7 @@ const App = (props) => {
     let queue = rankStats.queues.find(q => q.queueType === queueType);
     console.log("queue: ", queue)
     if (queue) {
-      return `${summoner[0].displayName} ${queue.tier} ${queue.division} ${queue.leaguePoints} ${queue.miniSeriesProgress} wins:${queue.wins}`;
+      return `${summoner[0].gameName ?? summoner[0].displayName} ${queue.tier} ${queue.division} ${queue.leaguePoints} ${queue.miniSeriesProgress} wins:${queue.wins}`;
     } else {
       return '';
     }
@@ -258,8 +263,8 @@ const App = (props) => {
         ApiUtils.checkIsDev() &&
         <>
           <Button onClick={async () => {
-            let res = await ApiUtils.getSummonersById(100529833)
-            console.log(res)
+            let res = await ApiUtils.getSummonerByPuuid('f65fc39c-06b1-5628-8acc-ed1df6cc3f06')
+            console.log("res:", res)
           }
           }>test</Button>
 

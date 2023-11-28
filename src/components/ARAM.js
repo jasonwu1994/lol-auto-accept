@@ -73,7 +73,7 @@ function ARAM(props) {
         if (record.summonerId && (!names.hasOwnProperty(record.summonerId) || names[record.summonerId] === record.summonerId)) {
           try {
             const response = await ApiUtils.getSummonersById(record.summonerId);
-            names[record.summonerId] = response[0].displayName;
+            names[record.summonerId] = response[0].gameName ?? response[0].displayName;
           } catch (error) {
             names[record.summonerId] = record.summonerId;
           }

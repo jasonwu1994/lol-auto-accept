@@ -7,6 +7,7 @@ class ApiUtils {
   static champions = [];
   static isDev = ApiUtils.checkIsDev();
   static apiBaseUrl = ApiUtils.getApiBaseUrl();
+  static summonerCache = new Map();
 
   static checkIsDev() {
     // console.log("window.location.hostname:",window.location.hostname)
@@ -44,7 +45,6 @@ class ApiUtils {
     ApiUtils.store.subscribe(() => {
       if (ApiUtils.champions.length > 0) {
         // console.log("已經有英雄資訊，不需要再取得", ApiUtils.champions.length)
-        return
       } else {
         console.log("準備所有英雄資訊 ", ApiUtils.getAllChampionsByCache().then(res => console.log(res)).catch(error => console.log(error)));
       }
@@ -111,8 +111,46 @@ class ApiUtils {
       })
   }
 
+  //summonerName 必須是gameName+tagLine
   static getSummonersByName(summonerName) {
     return axios.get(`${ApiUtils.getApiBaseUrl()}/lol-summoner/v1/summoners?name=${summonerName}`)
+  }
+
+  static async getSummonerByPuuid(puuid) {
+    return await axios.get(`${ApiUtils.getApiBaseUrl()}/lol-summoner/v2/summoners/puuid/${puuid}`)
+      .then(response => {
+        // console.log("getSummonerByPuuid ", response.data);
+        return response.data;
+      })
+      .catch(error => {
+        console.error("getSummonerByPuuid ", error);
+        return null;
+      })
+  }
+
+  static async getSummonerByPuuidFromCache(puuid) {
+    const CACHE_TIME = 30 * 60 * 1000 // 快取30分鐘
+    const CACHE_MAX_SIZE = 100
+    const currentTime = Date.now();
+    const cacheEntry = ApiUtils.summonerCache.get(puuid);
+    // console.log("SummonerCache", ApiUtils.summonerCache)
+
+    if (cacheEntry && currentTime - cacheEntry.timestamp < CACHE_TIME) {
+      return cacheEntry.data;
+    } else {
+      // 快取中沒有數據或已過期
+      const summonerData = await ApiUtils.getSummonerByPuuid(puuid);
+      if (summonerData) {
+        ApiUtils.summonerCache.set(puuid, {data: summonerData, timestamp: currentTime});
+        // 檢查快取大小，清理舊的
+        if (ApiUtils.summonerCache.size > CACHE_MAX_SIZE) {
+          const keysToDelete = Array.from(ApiUtils.summonerCache.keys()).slice(0, 50);
+          keysToDelete.forEach(key => ApiUtils.summonerCache.delete(key));
+        }
+      }
+
+      return summonerData;
+    }
   }
 
   static async getSummonerPuuidById(summonerId) {

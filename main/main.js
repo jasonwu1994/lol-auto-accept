@@ -13,6 +13,8 @@ const net = require('net');
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 app.commandLine.appendSwitch('ignore-certificate-errors')
 app.commandLine.appendSwitch('allow-insecure-localhost', 'true');
+app.commandLine.appendSwitch('disable-features', 'WidgetLayering');
+
 global.auth = {};
 let mainWinId = null
 let win = undefined

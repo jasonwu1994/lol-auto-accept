@@ -4,6 +4,7 @@ import Team from "./Team";
 import withErrorBoundary from "./error/withErrorBoundary";
 import {useTranslation} from 'react-i18next';
 
+
 function Duo(props) {
   const [duoList, setDuoList] = useState({teamOne: [], teamTwo: []});
   const {t} = useTranslation();
