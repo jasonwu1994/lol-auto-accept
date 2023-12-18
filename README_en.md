@@ -36,19 +36,19 @@ English | [中文](./README.md)
 
 ## 🖥 Screenshots
 <p float="left">
-  <img src="resources/github/screenshot/zh/main.jpg" width="48%" />
-  <img src="resources/github/screenshot/zh/main_dark.jpg" width="48%" />
+  <img src="resources/github/screenshot/en/main.jpg" width="48%" />
+  <img src="resources/github/screenshot/en/main_dark.jpg" width="48%" />
 </p>
 <p float="left">
-  <img src="resources/github/screenshot/zh/rank.jpg" width="48%" />
-  <img src="resources/github/screenshot/zh/duo.jpg" width="48%" />
+  <img src="resources/github/screenshot/en/rank.jpg" width="48%" />
+  <img src="resources/github/screenshot/en/duo.jpg" width="48%" />
 </p>
 <p float="left">
-  <img src="resources/github/screenshot/zh/ARAM.jpg" width="48%" />
-  <img src="resources/github/screenshot/zh/role.jpg" width="48%" />
+  <img src="resources/github/screenshot/en/ARAM.jpg" width="48%" />
+  <img src="resources/github/screenshot/en/role.jpg" width="48%" />
 </p>
 <p float="left">
-  <img src="resources/github/screenshot/zh/teammate_rank.jpg" width="48%" />
+  <img src="resources/github/screenshot/en/teammate_rank.jpg" width="48%" />
 </p>
 
 ## 🔍 FAQ
