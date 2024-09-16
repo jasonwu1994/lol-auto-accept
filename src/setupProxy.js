@@ -7,25 +7,25 @@ module.exports = function (app) {
       changeOrigin: true,
       timeout: 60000,
       proxyTimeout: 60000,
-      logLevel: 'debug',
       logger: console,
       secure: false,
-      logProvider: () => console,
       pathRewrite: {
-        '^/lol': '',
+        '^/lol(?=/)': '',
       },
-      onProxyReq: (proxyReq, req, res) => {
-        // console.log("onProxyReq ")
-        const port = req.headers['x-target-port'];
-        if (port) {
-          proxyReq.setHeader('Host', `127.0.0.1:${port}`);
-          proxyReq.removeHeader('x-target-port');
-          proxyReq.setHeader('target', `https://127.0.0.1:${port}`);
-        }
-      },
-      onProxyRes: (proxyRes, req, res) => {
-        const exchange = `[${req.method}] [${proxyRes.statusCode}] ${req.path} -> ${proxyRes.req.protocol}//${proxyRes.req.host}${proxyRes.req.path}`;
-        console.log(exchange); // [GET] [200] / -> http://www.example.com
+      on: {
+        proxyReq: (proxyReq, req, res) => {
+          // console.log("onProxyReq ")
+          const port = req.headers['x-target-port'];
+          if (port) {
+            proxyReq.setHeader('Host', `127.0.0.1:${port}`);
+            proxyReq.removeHeader('x-target-port');
+            proxyReq.setHeader('target', `https://127.0.0.1:${port}`);
+          }
+        },
+        proxyRes: (proxyRes, req, res) => {
+          const exchange = `[${req.method}] [${proxyRes.statusCode}] ${req.path} -> ${proxyRes.req.protocol}//${proxyRes.req.host}${proxyRes.req.path}`;
+          console.log(exchange); // [GET] [200] / -> http://www.example.com
+        },
       },
       router: (req) => {
         // console.log("router ",req)
