@@ -62,7 +62,19 @@
     "clear": "清空",
     "champion": "英雄",
     "summoner": "召喚師",
-    "isYou": "這是你"
+    "isYou": "這是你",
+    "balanceTab": "平衡調整",
+    "pickTab": "選角",
+    "balance": {
+      "damage_dealt": "造成傷害",
+      "damage_taken": "承受傷害",
+      "healing": "治療量",
+      "shield_mod": "護盾量",
+      "tenacity": "韌性",
+      "energy_regeneration": "施法資源回復",
+      "ability_haste": "技能加速",
+      "attack_speed_scaling": "攻速比率"
+    }
   },
   "about": {
     "author": "作者",
@@ -80,6 +92,8 @@
       "trio": "三排",
       "quad": "四排",
       "quint": "五排"
-    }
+    },
+    "copy_success": "已複製",
+    "copy_failure": "複製失敗"
   }
 }

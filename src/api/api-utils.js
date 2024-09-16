@@ -1,10 +1,14 @@
 import axios from 'axios'
+import i18next from 'i18next';
 
 class ApiUtils {
   static store;
   static port = 0;
   static authorization = '';
-  static champions = [];
+  static champions = {"zh_TW": [], "en_US": []}; // 根據語言快取
+  static lastFetchedChampions = {"zh_TW": null, "en_US": null}; // 存儲上次獲取數據的時間戳
+  static championsBalance = {};
+  static lastFetchedChampionsBalance = null; // 存儲上次獲取數據的時間戳
   static isDev = ApiUtils.checkIsDev();
   static apiBaseUrl = ApiUtils.getApiBaseUrl();
   static summonerCache = new Map();
@@ -42,13 +46,26 @@ class ApiUtils {
       }
       prevAuth = currentAuth
     });
-    ApiUtils.store.subscribe(() => {
-      if (ApiUtils.champions.length > 0) {
-        // console.log("已經有英雄資訊，不需要再取得", ApiUtils.champions.length)
-      } else {
-        console.log("準備所有英雄資訊 ", ApiUtils.getAllChampionsByCache().then(res => console.log(res)).catch(error => console.log(error)));
+
+    // 快取英雄資料
+    const cacheChampionsData = async () => {
+      try {
+        await Promise.all([
+          ApiUtils.getAllChampionsByCache('zh_TW'),
+          ApiUtils.getAllChampionsByCache('en_US')
+        ]);
+        console.log("英雄資料已成功快取");
+      } catch (error) {
+        console.error("快取英雄資料失敗", error);
       }
-    });
+    };
+    cacheChampionsData();
+
+    // 設定 40 分鐘自動調用快取資料
+    const interval = 40 * 60 * 1000; // 40 分鐘
+    setInterval(() => {
+      cacheChampionsData();
+    }, interval);
   }
 
   static getReduxState() {
@@ -195,12 +212,26 @@ class ApiUtils {
       .catch(error => console.error(error));
   }
 
-  static getAllChampions() {
-    return axios.get(`${ApiUtils.getApiBaseUrl()}/lol-champ-select/v1/all-grid-champions`)
+  static async getAllChampions(lang) {
+    try {
+      const versionsResponse = await ApiUtils.getVersions(); // 先取得版本號
+      const version = versionsResponse.data[0]; // 取最新的版本號
+      const response = await axios.get(`https://ddragon.leagueoflegends.com/cdn/${version}/data/${lang}/champion.json`);
+
+      // 轉換資料結構
+      const championsData = Object.values(response.data.data);
+      console.log('getAllChampions:', championsData);
+      return championsData;
+    } catch (error) {
+      console.error('Error fetching champions data:', error);
+      return [];
+    }
   }
 
+  // 依照 championId 取得英雄名字
   static getChampionNameById(championId) {
-    const champion = ApiUtils.champions.find((champion) => champion.id === championId);
+    const lang = ApiUtils.getCurrentLang();
+    const champion = ApiUtils.champions[lang].find((champion) => champion.key === championId.toString());
     return champion ? champion.name : championId;
   }
 
@@ -210,20 +241,68 @@ class ApiUtils {
     return champion ? champion.id : name;
   }
 
-  static async getAllChampionsByCache() {
-    if (ApiUtils.champions.length !== 0) {
-      console.log("return champions by cache")
-      return ApiUtils.champions
+  static async getAllChampionsByCache(lang = null) {
+    if (!lang) {
+      lang = ApiUtils.getCurrentLang();
     }
+    const CACHE_DURATION = 2 * 60 * 60 * 1000; // 2 小時 快取時間
+    const currentTime = Date.now();
+
+    // 如果 champions 已經存在且未過期，返回快取
+    if (ApiUtils.champions[lang].length !== 0 &&
+      ApiUtils.lastFetchedChampions[lang] &&
+      (currentTime - ApiUtils.lastFetchedChampions[lang]) < CACHE_DURATION) {
+      console.log(`Returning ${lang} champions from cache`);
+      return ApiUtils.champions[lang];
+    }
+
+    // 否則，打 API 重新抓取
     try {
-      const response = await ApiUtils.getAllChampions();
-      ApiUtils.champions = response.data
-      console.log("return champions by api")
-      return ApiUtils.champions;
+      const championsData = await ApiUtils.getAllChampions(lang);
+      ApiUtils.champions[lang] = championsData; // 更新快取
+      ApiUtils.lastFetchedChampions[lang] = currentTime; // 更新抓取時間
+      console.log(`Returning ${lang} champions from API`);
+      return ApiUtils.champions[lang];
     } catch (error) {
-      console.error(error);
-      ApiUtils.champions = []
+      console.error('Error fetching champions by cache:', error);
       return [];
+    }
+  }
+
+  static getChampionsBalance() {
+    return axios.get(`https://b2c-api-cdn.deeplol.gg/champion/balance`, {
+      headers: {
+        'Accept': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Authorization': '',
+        'x-target-port': ''
+      }
+    })
+  }
+
+  static async getChampionsBalanceByCache() {
+    const CACHE_DURATION = 2 * 60 * 60 * 1000; // 2 小時 快取時間
+    const currentTime = Date.now();
+
+    // 如果 championsBalance 已經存在，並且未超過快取時間，則直接返回快取
+    if (Object.keys(ApiUtils.championsBalance).length !== 0 &&
+      ApiUtils.lastFetchedChampionsBalance &&
+      (currentTime - ApiUtils.lastFetchedChampionsBalance) < CACHE_DURATION) {
+      console.log("return champions balance by cache");
+      return ApiUtils.championsBalance;
+    }
+
+    // 否則，重新調用API來獲取最新的數據
+    try {
+      const response = await ApiUtils.getChampionsBalance();
+      ApiUtils.championsBalance = response.data;
+      ApiUtils.lastFetchedChampionsBalance = currentTime; // 更新最後的獲取時間
+      console.log("return champions balance by api", ApiUtils.championsBalance);
+      return ApiUtils.championsBalance;
+    } catch (error) {
+      console.error("Error fetching champions balance:", error);
+      ApiUtils.championsBalance = {};
+      return {};
     }
   }
 
@@ -247,6 +326,13 @@ class ApiUtils {
     return axios.post(`${ApiUtils.getApiBaseUrl()}/lol-champ-select/v1/session/bench/swap/${championId}`)
   }
 
+  static getVersions() {
+    return axios.get(`https://ddragon.leagueoflegends.com/api/versions.json`)
+  }
+
+  static getCurrentLang() {
+    return i18next.language === 'en' ? 'en_US' : 'zh_TW';
+  }
 
 }
 

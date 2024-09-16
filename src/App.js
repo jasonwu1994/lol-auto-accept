@@ -5,7 +5,7 @@ import {connect} from "react-redux";
 import {showTeammateRankedType} from "./redux/reducers/ConfigReducer"
 import ApiUtils from "./api/api-utils";
 import {gamePhaseToAppState} from "./redux/reducers/GameReducer";
-import {addSummoner} from "./components/ARAM";
+import {addSummoner} from "./components/common/summonerUtils";
 import store from './redux/store'
 import {useTranslation} from 'react-i18next';
 import {trackEvent} from './components/GoogleAnalytics';

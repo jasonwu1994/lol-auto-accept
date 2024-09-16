@@ -62,7 +62,19 @@
     "clear": "Clear",
     "champion": "Champion",
     "summoner": "Summoner",
-    "isYou": "You"
+    "isYou": "You",
+    "balanceTab": "Balance",
+    "pickTab": "Pick",
+    "balance": {
+      "damage_dealt": "Damage Dealt",
+      "damage_taken": "Damage Taken",
+      "healing": "Healing",
+      "shield_mod": "Shield Mod",
+      "tenacity": "Tenacity",
+      "energy_regeneration": "Energy Regen",
+      "ability_haste": "Ability Haste",
+      "attack_speed_scaling": "Attack Speed"
+    }
   },
   "about": {
     "author": "Author",
@@ -80,6 +92,8 @@
       "trio": "Trio",
       "quad": "Quad",
       "quint": "Quint"
-    }
+    },
+    "copy_success": "Copied",
+    "copy_failure": "Copy failed"
   }
 }

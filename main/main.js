@@ -134,7 +134,8 @@ function createWindow(freePort) {
     height: 600,
     webPreferences: {
       nodeIntegration: true,
-      contextIsolation: false
+      contextIsolation: false,
+      webSecurity: false
     },
   })
   win.setIcon(path.join(__dirname, '../resources/icon.ico'))
