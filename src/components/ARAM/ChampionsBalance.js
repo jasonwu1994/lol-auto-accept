@@ -9,6 +9,8 @@ import {connect} from "react-redux";
 import withErrorBoundary from "../error/withErrorBoundary";
 import ChampionImage from "../common/ChampionImage";
 
+const {ipcRenderer} = window.require('electron');
+
 
 // 降低表格每列的高
 const CustomTable = styled.div`
@@ -19,6 +21,11 @@ const CustomTable = styled.div`
         //padding-right: 16px !important;
     }
 `;
+
+const handleClickLink = (event, url) => {
+  event.preventDefault();
+  ipcRenderer.send('open-link', url);
+}
 
 const ChampionsBalance = (props) => {
   const [championsBalance, setChampionsBalance] = useState({});
@@ -263,7 +270,13 @@ const ChampionsBalance = (props) => {
   const columns = [
     {
       title: (
-        <a href="https://www.deeplol.gg/balance/aram/all" target="_blank" rel="noopener noreferrer">
+        <a href="" target="_blank" rel="noopener noreferrer"
+           onClick={(event) => {
+             handleClickLink(event, 'https://www.deeplol.gg/balance/aram/all')
+             trackEvent('click_view_deeplol', {
+               version: championsBalance?.version || ''
+             })
+           }}>
           {championsBalance?.version || ''}
         </a>
       ),
