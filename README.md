@@ -6,7 +6,7 @@
 <div align="center">
 
 ![Static Badge](https://img.shields.io/badge/react-18.2.0-blue)
-![Static Badge](https://img.shields.io/badge/electron-27.0.4-blue)
+![Static Badge](https://img.shields.io/badge/electron-28.3.3-blue)
 
 [![GitHub release](https://img.shields.io/github/v/release/jasonwu1994/lol-auto-accept)](https://github.com/jasonwu1994/lol-auto-accept/releases)
 ![downloads](https://img.shields.io/github/downloads/jasonwu1994/lol-auto-accept/total)
