@@ -77,6 +77,7 @@ const MyLayout = ({children}) => {
     getItem(t('menu.main'), '/main'),
     getItem(t('menu.duo'), '/duo'),
     getItem(t('menu.rank'), '/rank'),
+    getItem(t('menu.recentPlayers'), '/recentPlayers'),
     getItem(t('menu.aram'), '/aram'),
     getItem(t('menu.selectedRole'), '/selectedRole'),
     getItem(isNewVersionAvailable ? "✨ " + t('menu.about') : t('menu.about'), '/about'),

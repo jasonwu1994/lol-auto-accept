@@ -3,6 +3,7 @@ import {useState, useEffect} from 'react';
 import Main from './Main';
 import Duo from './Duo';
 import Rank from './Rank';
+import RecentPlayers from './RecentPlayers';
 import ARAM from "./ARAM";
 import SelectedRole from "./SelectedRole";
 import About from "./About";
@@ -21,6 +22,7 @@ function VisibleSwitch() {
     {path: '/main', component: Main},
     {path: '/duo', component: Duo},
     {path: '/rank', component: Rank},
+    {path: '/recentPlayers', component: RecentPlayers},
     {path: '/aram', component: ARAM},
     {path: '/selectedRole', component: SelectedRole},
     {path: '/about', component: About},

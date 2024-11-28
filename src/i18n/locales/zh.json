@@ -3,6 +3,7 @@
     "main": "主頁",
     "duo": "雙排",
     "rank": "積分",
+    "recentPlayers": "最近遇過",
     "aram": "隨機單中",
     "selectedRole": "列隊規則",
     "about": "關於"
@@ -13,6 +14,7 @@
     "forceKillLoL": "強制關閉LOL",
     "autoAccept": "自動接受對戰",
     "displayTeammateScore": "選角時，顯示隊友積分",
+    "displayRecentTeammate": "選角時，顯示最近遇過",
     "showTeammateRankedType": {
       "soloDuo": "單雙",
       "flex": "彈性",

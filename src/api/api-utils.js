@@ -1,5 +1,6 @@
 import axios from 'axios'
 import i18next from 'i18next';
+import store from '../redux/store';
 
 class ApiUtils {
   static store;
@@ -69,11 +70,11 @@ class ApiUtils {
   }
 
   static getReduxState() {
+    if (!ApiUtils.store) {
+      console.warn("ApiUtils.store is undefined. Reinitializing...");
+      ApiUtils.store = store; // 自動重新設置為全局的 Redux store
+    }
     return ApiUtils.store.getState();
-  }
-
-  static async getCurrentSummoner() {
-    return axios.get(`${ApiUtils.getApiBaseUrl()}/lol-summoner/v1/current-summoner`)
   }
 
   static postAcceptMatchmaking() {
@@ -101,6 +102,7 @@ class ApiUtils {
   }
 
   static postConversations(str) {
+    if (str === "") return
     let payload = {
       body: str,
       fromId: "",
@@ -115,6 +117,32 @@ class ApiUtils {
     axios.post(`${ApiUtils.getApiBaseUrl()}/lol-chat/v1/conversations/${chatRoomId}/messages`, payload)
       .then(response => console.log("postConversations ", response.data))
       .catch(error => console.error(error));
+  }
+
+  static async getCurrentSummoner() {
+    try {
+      const response = await axios.get(
+        `${ApiUtils.getApiBaseUrl()}/lol-summoner/v1/current-summoner`
+      );
+      console.log("API getCurrentSummoner:", response.data)
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching CurrentSummoner:", error);
+      return {};
+    }
+  }
+
+  static async getCurrentSummonerPuuid() {
+    try {
+      const response = await ApiUtils.getCurrentSummoner()
+      if (response?.puuid) {
+        return response.puuid;
+      }
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching getCurrentSummonerPuuid:", error);
+      return "";
+    }
   }
 
   static getSummonersById(summonerId) {
@@ -332,6 +360,81 @@ class ApiUtils {
 
   static getCurrentLang() {
     return i18next.language === 'en' ? 'en_US' : 'zh_TW';
+  }
+
+  static async getCurrentSummonerMatches(begIndex, endIndex) {
+    try {
+      const response = await axios.get(
+        `${ApiUtils.getApiBaseUrl()}/lol-match-history/v1/products/lol/current-summoner/matches?begIndex=${begIndex}&endIndex=${endIndex}`
+      );
+      console.log("API getCurrentSummonerMatches:", response.data)
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching matches:", error);
+      return {};
+    }
+  }
+
+  static async getHistoryGame(gameId) {
+    try {
+      const response = await axios.get(
+        `${ApiUtils.getApiBaseUrl()}/lol-match-history/v1/games/${gameId}`
+      );
+      console.log("API getHistoryGames:", response.data)
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching matches:", error);
+      return {};
+    }
+  }
+
+  static async getHistoryGames(gameIds) {
+    const results = [];
+    for (const gameId of gameIds) {
+      try {
+        const data = await ApiUtils.getHistoryGame(gameId);
+        results.push(data);
+      } catch (error) {
+        console.error(`Error processing gameId ${gameId}:`, error);
+      }
+    }
+    return results;
+  }
+
+  static async getLobbyCommsMembers() {
+    try {
+      const response = await axios.get(
+        `${ApiUtils.getApiBaseUrl()}/lol-lobby/v2/comms/members`
+      );
+      console.log("API getLobbyCommsMembers:", response.data)
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching getLobbyCommsMembers:", error);
+      return {};
+    }
+  }
+
+  /**
+   * 獲取 Lobby 成員的 PUUID 陣列
+   * @returns {Promise<string[]>} 成員的 PUUID 陣列
+   */
+  static async getLobbyCommsMembersPuuids() {
+    try {
+      const response = await this.getLobbyCommsMembers();
+
+      // 檢查 players 是否存在並且是對象
+      if (response.players && typeof response.players === "object") {
+        // 取出 players 的所有 key 作為 PUUID
+        const puuids = Object.keys(response.players);
+        return puuids;
+      }
+
+      // 如果 players 不存在或格式不正確，返回空陣列
+      return [];
+    } catch (error) {
+      console.error("Error fetching getLobbyCommsMembersPuuid:", error);
+      return [];
+    }
   }
 
 }

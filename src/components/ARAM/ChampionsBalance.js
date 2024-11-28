@@ -230,7 +230,7 @@ const ChampionsBalance = (props) => {
 
     // 如果 myTeam 和 benchChampions 都是空的，直接顯示未排序的數據
     if (myTeamChampionIds.length === 0 && benchChampionIds.length === 0) {
-      console.log('無需排序，顯示原始數據');
+      // console.log('無需排序，顯示原始數據');
       setSortedDataSource(championsBalance.total_aram_balance);
       return;
     }

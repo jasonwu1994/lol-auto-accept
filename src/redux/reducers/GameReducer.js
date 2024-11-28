@@ -8,6 +8,7 @@ const GameReducer = (prevState = {
   appStateKey: 'main.appStates.lolNotOpen',
   gamePhase: '',
   myTeam: [],
+  lobbyMembers: []
 }, action) => {
   let newState = {...prevState}
   switch (action.type) {
@@ -29,6 +30,9 @@ const GameReducer = (prevState = {
       return newState
     case "change-gamePhase":
       newState.gamePhase = action.data
+      return newState
+    case "change-lobby-members":
+      newState.lobbyMembers = action.data
       return newState
     default:
       return prevState

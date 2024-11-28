@@ -3,6 +3,7 @@
     "main": "Home",
     "duo": "Duo",
     "rank": "Rank",
+    "recentPlayers": "Recent",
     "aram": "ARAM",
     "selectedRole": "Role",
     "about": "About"
@@ -12,7 +13,8 @@
     "declineMatchmaking": "Decline Matchmaking",
     "forceKillLoL": "Force Close LOL",
     "autoAccept": "Auto Accept Match",
-    "displayTeammateScore": "Display Teammate Score during Champion Selection",
+    "displayTeammateScore": "Show teammates score during Champion Selection",
+    "displayRecentTeammate": "Show recent teammates during Champion Selection",
     "showTeammateRankedType": {
       "soloDuo": "Solo/Duo",
       "flex": "Flex",

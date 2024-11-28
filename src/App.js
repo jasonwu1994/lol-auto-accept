@@ -1,14 +1,15 @@
-import React, {useEffect} from 'react';
-import {Button} from 'antd';
+import React, {useEffect, useState} from 'react';
 import Layout from "./components/Layout";
 import {connect} from "react-redux";
 import {showTeammateRankedType} from "./redux/reducers/ConfigReducer"
 import ApiUtils from "./api/api-utils";
+import RecentTeammatesService from './services/recentTeammatesService'
 import {gamePhaseToAppState} from "./redux/reducers/GameReducer";
 import {addSummoner} from "./components/common/summonerUtils";
 import store from './redux/store'
 import {useTranslation} from 'react-i18next';
 import {trackEvent} from './components/GoogleAnalytics';
+import Test from './components/Test'
 
 const _package = require("../package.json");
 const {ipcRenderer} = window.require('electron');
@@ -22,6 +23,7 @@ const formatDuration = (seconds) => {
 
 const App = (props) => {
   const {t, i18n} = useTranslation();
+  const [isInitConfigUpdated, setIsInitConfigUpdated] = useState(false);  // 用於觸發渲染後的動作
 
   useEffect(() => {
     ipcRenderer.on('auth', async (event, data) => {
@@ -90,8 +92,15 @@ const App = (props) => {
     ipcRenderer.on('champ-select-session', async (event, data) => {
       console.log('Received message [champ-select-session]:', data);
       props.changeChampSelectSession(data)
+      if (data?.chatDetails?.multiUserChatId) {
+        props.changeChatRoomId(data.chatDetails.multiUserChatId);
+      }
     });
 
+    ipcRenderer.on('lobby-comms-members', async (event, data) => {
+      console.log('Received message [lobby-comms-members]:', data);
+      props.changeLobbyMembers(data.players || {})
+    });
   }, []);
 
   //測試用
@@ -160,7 +169,7 @@ const App = (props) => {
   useEffect(() => {
     const currentVersion = _package.version; // 確保這裡能正確獲取到版本號
 
-    const handleEvent = (event, data) => {
+    const handleEvent = async (event, data) => {
       console.log('Received message [set-config]:', data);
       if (data) {
         console.log('changeConfig ', data);
@@ -173,6 +182,8 @@ const App = (props) => {
         trackEvent('app_start', {version: currentVersion});
         ipcRenderer.send('set-config', store.getState().ConfigReducer); // 給預設設定檔
       }
+      await sleep(300)
+      setIsInitConfigUpdated(true);
     }
     ipcRenderer.on('set-config', handleEvent);
     return () => {
@@ -180,6 +191,12 @@ const App = (props) => {
     }
   }, []);
 
+  // 當狀態更新後，發送 ack 訊息
+  useEffect(() => {
+    if (isInitConfigUpdated) {
+      ipcRenderer.send('init-set-config-ack', true);
+    }
+  }, [isInitConfigUpdated]);  // 依賴於 isInitConfigUpdated，當其變為 true 時觸發
 
   useEffect(() => {
     const startTime = Date.now();
@@ -233,15 +250,17 @@ const App = (props) => {
       default:
         queueTypes.push({type: showTeammateRankedType.SOLO, label: t('main.rankedType.soloDuo')});
     }
+    let conversationString = "";
     for (const queueType of queueTypes) {
-      ApiUtils.postConversations(queueType.label);
+      conversationString += queueType.label + "\n";
       for (const element of response.myTeam) {
-        if (element.summonerId === 0) continue
+        if (element.summonerId === 0) continue;
         const s = await getRankedStatsSummary(element.summonerId, queueType.type);
-        console.log("s=", s);
-        ApiUtils.postConversations(s);
+        conversationString += s + "\n";
       }
     }
+    console.log(`showTeammateRankedStats conversationString:\n${conversationString}`);
+    ApiUtils.postConversations(conversationString.trim());
   }
 
   async function getRankedStatsSummary(summonerId, queueType) {
@@ -249,7 +268,7 @@ const App = (props) => {
     let rankStats = await ApiUtils.getRankedStats(summonerId)
     console.log("rankStats: ", rankStats)
     let queue = rankStats.queues.find(q => q.queueType === queueType);
-    console.log("queue: ", queue)
+    // console.log("queue: ", queue)
     if (queue) {
       return `${summoner[0].gameName ?? summoner[0].displayName} ${queue.tier} ${queue.division} ${queue.leaguePoints} ${queue.miniSeriesProgress} wins:${queue.wins}`;
     } else {
@@ -259,21 +278,9 @@ const App = (props) => {
 
   return (
     <Layout>
+      <RecentTeammatesService/>
       {
-        ApiUtils.checkIsDev() &&
-        <>
-          <Button onClick={async () => {
-            let res = await ApiUtils.getSummonerByPuuid('f65fc39c-06b1-5628-8acc-ed1df6cc3f06')
-            console.log("res:", res)
-          }
-          }>test</Button>
-
-          <Button onClick={() => {
-            console.log("store ", store.getState())
-          }}>
-            config
-          </Button>
-        </>
+        ApiUtils.checkIsDev() && <Test/>
       }
     </Layout>
   )
@@ -336,6 +343,12 @@ const mapDispatchToProp = {
   changeConfig(data) {
     return {
       type: "change-config",
+      data
+    }
+  },
+  changeLobbyMembers(data) {
+    return {
+      type: "change-lobby-members",
       data
     }
   }

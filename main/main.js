@@ -24,6 +24,7 @@ global.timers = {
   authInterval: [],
   cancelInterval: []
 };
+global.setConfigTimer = null
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 console.log("version:", app.getVersion())
@@ -127,11 +128,36 @@ function initTheme() {
   }
 }
 
+/**
+ * 發送配置，並在配置未收到回應時進行重試
+ * @param {number} maxRetries - 最大重試次數
+ * @param {number} retryInterval - 每次重試的間隔時間，單位為毫秒
+ */
+function sendConfigTimer(maxRetries, retryInterval) {
+  let retries = 0;
+  // 發送配置的函數
+  const sendConfig = () => {
+    retries++;
+    win.webContents.send('set-config', store.get('config'));
+    // 如果超過最大重試次數，則停止重試
+    if (retries >= maxRetries) {
+      console.log('Max retries reached, giving up on sending config.');
+      clearTimeout(global.setConfigTimer);  // 清除定時器，確保不再重試
+      return;
+    }
+    // 每隔一段時間重試發送配置
+    global.setConfigTimer = setTimeout(sendConfig, retryInterval);
+  };
+  // 開始發送配置
+  sendConfig();
+}
+
 //創建主視窗
 function createWindow(freePort) {
   win = new BrowserWindow({
     width: 800,
     height: 600,
+    show: false,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
@@ -168,10 +194,9 @@ function createWindow(freePort) {
       global.timers.cancelInterval.push(cancelInterval)
     }
     //send config
-    win.webContents.send('set-config', store.get('config'));
+    sendConfigTimer(150, 200)
   });
 }
-
 
 function lolListener() {
   const connector = new LCUConnector();
@@ -235,6 +260,11 @@ function handleOnLoginSession(payload) {
   if (payload.uri === '/lol-champ-select/v1/session' && payload.eventType !== 'Delete') {
     console.log("champ-select/session ", JSON.stringify(payload, null, 2));
     BrowserWindow.fromId(mainWinId).webContents.send('champ-select-session', payload.data);
+  }
+
+  if (payload.uri === '/lol-lobby/v2/comms/members' && payload.eventType !== 'Delete') {
+    console.log("lol-lobby/v2/comms/members ", JSON.stringify(payload, null, 2));
+    BrowserWindow.fromId(mainWinId).webContents.send('lobby-comms-members', payload.data);
   }
 
 }
@@ -307,6 +337,18 @@ ipcMain.on('always-on-top', (event, url) => {
   }
 });
 
+ipcMain.on('init-set-config-ack', (event, data) => {
+  console.log('Received [init-set-config-ack] from react', data);
+  if (global.setConfigTimer) {
+    clearTimeout(global.setConfigTimer);
+    global.setConfigTimer = null;
+    console.log('setConfigTimer attempt stopped.');
+  }
+  // 停止監聽這個事件
+  ipcMain.removeListener('set-config-response', arguments.callee);
+  win.show();
+});
+
 function handleGamePhase(phase) {
   const mainWindow = BrowserWindow.fromId(mainWinId).webContents;
   switch (phase) {
@@ -350,7 +392,6 @@ function handleGamePhase(phase) {
       console.log("未知遊戲階段", phase);
   }
 }
-
 
 function initTray() {
   tray = new Tray(path.join(__dirname, '../resources/icon.ico'))

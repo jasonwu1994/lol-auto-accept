@@ -1,8 +1,10 @@
 const ConfigReducer = (prevState = {
   isAutoAccept: true,
+  isShowRecentTeammate: true,
+  recentTeammateCheckGameCount: 20,
   isShowTeammateRanked: true,
   showTeammateRankedType: showTeammateRankedType.BOTH,
-  isHovercard: true,
+  isHovercard: false,
   hovercardTierType: tierType.CHALLENGER,
   hovercardRankedType: rankedType.SOLO,
   language: language.zh,
@@ -12,6 +14,12 @@ const ConfigReducer = (prevState = {
   switch (action.type) {
     case "change-isAutoAccept":
       newState.isAutoAccept = action.data
+      return newState
+    case "change-isShowRecentTeammate":
+      newState.isShowRecentTeammate = action.data
+      return newState
+    case "change-recentTeammateCheckGameCount":
+      newState.recentTeammateCheckGameCount = action.data
       return newState
     case "change-isShowTeammateRanked":
       newState.isShowTeammateRanked = action.data
