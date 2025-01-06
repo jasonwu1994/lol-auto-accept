@@ -39,6 +39,7 @@
     "pouchdb": "^9.0.0",
     "taskkill": "^5.0.0",
     "tasklist": "^5.0.0",
+    "winston": "^3.17.0",
     "ws": "^8.14.2"
   },
   "devDependencies": {
