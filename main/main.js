@@ -1,7 +1,7 @@
 const {app, BrowserWindow, ipcMain, Menu, Tray, shell, nativeTheme} = require('electron')
 const path = require('path');
-const LCUConnector = require('lcu-connector');
 const RiotWSProtocol = require('./lcu-ws.js');
+const LeagueClient = require('league-connect');
 const isDev = require('electron-is-dev');
 const Store = require('electron-store');
 const config = {name: 'app-config', fileExtension: 'json', cwd: path.dirname(__dirname)}
@@ -101,7 +101,7 @@ if (!gotSingleInstanceLock) {
       initTray();
       initTheme()
       createWindow(freePort);
-      lolListener();
+      initLolListener()
 
     }).catch((error) => {
       console.error(error.message);
@@ -198,12 +198,30 @@ function createWindow(freePort) {
   });
 }
 
-function lolListener() {
-  const connector = new LCUConnector();
-  connector.on('connect', data => {
-    console.log('League Client has started', data);
-    BrowserWindow.fromId(mainWinId).webContents.send('lol-connect', '');
+async function initLolListener() {
+  console.log('[initLolListener] 開始檢測 LOL 是否執行...');
+  const credentials = await LeagueClient.authenticate({
+    awaitConnection: true,
+    pollInterval: 2000,
+  });
+  console.log('[initLolListener] credentials:', credentials);
+
+  const client = new LeagueClient.LeagueClient(credentials, {
+    pollInterval: 2000,
+  });
+
+  client.on('connect', async (newCredentials) => {
+    console.log('[LeagueClient] connect 事件觸發 → LOL 執行中:', newCredentials);
+    let data =
+      {
+        protocol: 'https',
+        address: '127.0.0.1',
+        port: newCredentials.port,
+        username: 'riot',
+        password: newCredentials.password
+      }
     global.auth = data
+    BrowserWindow.fromId(mainWinId).webContents.send('lol-connect', '');
     BrowserWindow.fromId(mainWinId).webContents.send('auth', data);
     try {
       connectWithRetry(`wss://${data.username}:${data.password}@${data.address}:${data.port}/`, 10);
@@ -211,11 +229,15 @@ function lolListener() {
       console.error(`Caught error: ${error}`);
     }
   });
-  connector.on('disconnect', () => {
-    console.log('League Client has been closed');
+
+  client.on('disconnect', () => {
+    console.log('[LeagueClient] disconnect 事件觸發 → LOL 已關閉');
     BrowserWindow.fromId(mainWinId).webContents.send('lol-disconnect', '');
   });
-  connector.start();
+  // 手動觸發一次,如果LOL執行中，league-connect套件不會觸發，要等到重開LOL才會觸發
+  client.emit('connect', credentials);
+  client.start();
+  console.log('[initLolListener] client.start() 已執行');
 }
 
 const connectWithRetry = (url, retriesLeft) => {

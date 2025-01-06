@@ -2,12 +2,12 @@ module.exports = {
   packagerConfig: {
     asar: false,
     ignore: [
-      "node_modules/.cache",
+      "^/node_modules/.cache",
       ".*/.idea",
       ".*/.gitignore",
-      "public",
-      "resources/.*/.*",
-      "resources/(?!.*.ico$).*$",
+      "^/public",
+      "^/resources/.*/.*",
+      "^/resources/(?!.*.ico$).*$",
       ".*forge\\.config\\.js",
       ".*\\.env",
       "^/src",
