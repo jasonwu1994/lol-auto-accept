@@ -9,7 +9,7 @@ module.exports = {
       "^/resources/.*/.*",
       "^/resources/(?!.*.ico$).*$",
       ".*forge\\.config\\.js",
-      ".*\\.env",
+      "^/.env",
       "^/src",
       "^/app-config.json",
       "^/yarn-error.log"
