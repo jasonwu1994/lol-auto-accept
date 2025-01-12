@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import Layout from "./components/Layout";
 import {connect} from "react-redux";
 import {showTeammateRankedType} from "./redux/reducers/ConfigReducer"
@@ -25,6 +25,12 @@ const App = (props) => {
   const {t, i18n} = useTranslation();
   const [isInitConfigUpdated, setIsInitConfigUpdated] = useState(false);  // 用於觸發渲染後的動作
 
+  // 解決set-config中props.appStateKey初始化值不會更新的問題
+  const appStateKeyRef = useRef(props.appStateKey);
+  useEffect(() => {
+    appStateKeyRef.current = props.appStateKey;
+  }, [props.appStateKey]);
+
   useEffect(() => {
     ipcRenderer.on('auth', async (event, data) => {
       console.log('Received message [auth]:', data);
@@ -34,6 +40,7 @@ const App = (props) => {
         .then(response => {
           // console.log(response.data)
           phase = response.data
+          console.log('Received message [auth]: props.changeAppState ', phase);
           props.changeAppState(gamePhaseToAppState(phase))
           props.changeGamePhase(data)
         })
@@ -173,9 +180,10 @@ const App = (props) => {
       console.log('Received message [set-config]:', data);
       if (data) {
         console.log('changeConfig ', data);
+        console.log('changeConfig appStateKeyRef.current', appStateKeyRef.current);
         props.changeConfig(data)
         i18n.changeLanguage(data.language)
-        props.changeAppState(props.appStateKey)
+        props.changeAppState(appStateKeyRef.current)
         const eventData = {...data, version: currentVersion};
         trackEvent('app_start', eventData);
       } else {
