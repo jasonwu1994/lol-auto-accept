@@ -297,19 +297,39 @@ class ApiUtils {
     }
   }
 
-  static getChampionsBalance() {
-    return axios.get(`https://b2c-api-cdn.deeplol.gg/champion/balance`, {
-      headers: {
-        'Accept': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Authorization': '',
-        'x-target-port': ''
+  static async getChampionsBalance() {
+    try {
+      // 取得最新版本號
+      const versionResponse = await axios.get(`https://b2c-api-cdn.deeplol.gg/champion/version?cnt=3`, {
+        headers: {
+          'Accept': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      });
+
+      const versionList = versionResponse.data.game_version_list;
+      if (!Array.isArray(versionList) || versionList.length === 0) {
+        throw new Error('No valid versions received from version API');
       }
-    })
+
+      // 使用最新版本號請求balance數據
+      const latestVersion = versionList[0];
+      return await axios.get(`https://b2c-api-cdn.deeplol.gg/champion/balance?version=${latestVersion}`, {
+        headers: {
+          'Accept': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Authorization': '',
+          'x-target-port': '',
+        },
+      });
+    } catch (error) {
+      console.error('Error fetching champions balance:', error);
+      throw error;
+    }
   }
 
   static async getChampionsBalanceByCache() {
-    const CACHE_DURATION = 2 * 60 * 60 * 1000; // 2 小時 快取時間
+    const CACHE_DURATION = 1 * 60 * 60 * 1000; // 1 小時 快取時間
     const currentTime = Date.now();
 
     // 如果 championsBalance 已經存在，並且未超過快取時間，則直接返回快取
