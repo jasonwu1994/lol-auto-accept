@@ -139,6 +139,7 @@ function sendConfigTimer(maxRetries, retryInterval) {
   // 發送配置的函數
   const sendConfig = () => {
     retries++;
+    logger.info(`sendConfigTimer retries:${retries}`)
     win.webContents.send('set-config', store.get('config'));
     // 如果超過最大重試次數，則停止重試
     if (retries >= maxRetries) {
