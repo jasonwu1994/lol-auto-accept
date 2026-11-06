@@ -1,0 +1,38 @@
+fn main() {
+    println!("cargo:rerun-if-env-changed=LOL_ONLINE_COUNT_URL");
+    tauri_build::try_build(tauri_build::Attributes::new().app_manifest(
+        tauri_build::AppManifest::new().commands(&[
+            "get_online_count",
+            "bootstrap",
+            "update_config",
+            "get_gameflow_session",
+            "get_gameflow_phase",
+            "get_champ_select_session",
+            "get_current_summoner",
+            "get_lobby_members",
+            "get_pickable_champion_ids",
+            "get_summoners_by_id",
+            "get_summoner_by_puuid",
+            "get_ranked_stats",
+            "get_current_summoner_matches",
+            "get_history_game",
+            "get_champions",
+            "get_champions_balance",
+            "get_versions",
+            "get_latest_release",
+            "respond_ready_check",
+            "set_aram_preferences",
+            "swap_bench_champion",
+            "set_hovercard",
+            "history_save_games",
+            "history_list_games",
+            "history_existing_game_ids",
+            "history_trim",
+            "set_always_on_top",
+            "open_external",
+            "write_clipboard",
+            "terminate_league_processes",
+        ]),
+    ))
+    .expect("Tauri build failed");
+}

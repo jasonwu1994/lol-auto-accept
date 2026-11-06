@@ -5,8 +5,8 @@
 
 <div align="center">
 
-![Static Badge](https://img.shields.io/badge/react-18.2.0-blue)
-![Static Badge](https://img.shields.io/badge/electron-28.3.3-blue)
+![Static Badge](https://img.shields.io/badge/react-19-blue)
+![Static Badge](https://img.shields.io/badge/Tauri-2.12.5-blue)
 
 [![GitHub release](https://img.shields.io/github/v/release/jasonwu1994/lol-auto-accept)](https://github.com/jasonwu1994/lol-auto-accept/releases)
 ![downloads](https://img.shields.io/github/downloads/jasonwu1994/lol-auto-accept/total)
@@ -21,7 +21,7 @@
 English | [中文](./README.md)
 
 ## ✨ Features
-1. **🚀 Auto-Accept Matches**: Automatically accepts matches within 1 second.  
+1. **🚀 Auto-Accept Matches**: Automatically accepts a valid ready check when enabled.
    If a match is accepted and you change your mind, you can reject it from the application interface by clicking "Decline Match".
 2. **🏆 Display Teammate Scores During Champion Selection**: This feature is inactive if the server no longer displays player names.
 3. **👥 Display Duo Players**: In-game, shows duo (or multi) players on both sides, sorted by the number of players.
@@ -30,25 +30,13 @@ English | [中文](./README.md)
 6. **🪪 Modify Hovercard**: Hover over your avatar to see the effect.
 
 ## 🌟 Description
-- **Ultra-Low CPU Usage**: Operates using event subscriptions, so the program only activates during specific events, resulting in near-zero CPU usage otherwise.
+- **Background Operation**: Closing the window keeps the application running in the system tray. Choose Exit to quit.
 - **Non-Intrusive to Game Files**: Does not inject or alter game files, maintaining the game's integrity.
-- **Safe API Usage**: Uses the same API as the LeagueClient, ensuring high security.
+- **Local Client Integration**: Uses the LeagueClient API. Client updates or unavailable data can affect individual features.
 
 ## 🖥 Screenshots
-<p float="left">
-  <img src="resources/github/screenshot/en/main.jpg" width="48%" />
-  <img src="resources/github/screenshot/en/main_dark.jpg" width="48%" />
-</p>
-<p float="left">
-  <img src="resources/github/screenshot/en/rank.jpg" width="48%" />
-  <img src="resources/github/screenshot/en/duo.jpg" width="48%" />
-</p>
-<p float="left">
-  <img src="resources/github/screenshot/en/ARAM.jpg" width="48%" />
-  <img src="resources/github/screenshot/en/role.jpg" width="48%" />
-</p>
-<p float="left">
-  <img src="resources/github/screenshot/en/teammate_rank.jpg" width="48%" />
+<p align="center">
+  <img src="resources/github/screenshot/en/screenshot.png" width="80%" />
 </p>
 
 ## 🔍 FAQ
@@ -60,12 +48,15 @@ English | [中文](./README.md)
 ### 2. Why did a feature stop working?
 - All functionalities are entirely dependent on the LeagueClient API. If the official API is updated, some features may become inactive.
 
-### 3. How do I uninstall the program?
-- Simply delete the folder. This program does not create files elsewhere on your computer.
+### 3. How do I remove the program?
+- Choose Exit in the system tray, then delete the EXE. Configuration and history are preserved.
 
 ### 4. Where is the configuration file?
 - Under normal circumstances, there is no need to access the configuration file.
-- lol-app-win32-x64\resources\app\app-config.json
+- Configuration: `%APPDATA%\io.github.jasonwu1994.lolautoaccept\config.json`
+- History: `%APPDATA%\io.github.jasonwu1994.lolautoaccept\history\history.sqlite3`
+- On first launch, history from the previous location is automatically copied to the new location. The original file is preserved as a backup.
+- Close the old application first. On first launch, settings are read from `app-config.json` in the configuration or executable directory, including the old `resources/app/app-config.json` location. Missing values use defaults and the old file is left unchanged. Match history is fetched from the game client on demand; no import is required.
 
 ## 🎉 Conclusion
 **If you find this program helpful, please give it a ⭐️！**  

@@ -1,0 +1,209 @@
+.player-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.player-table-scroll:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 2px;
+}
+
+.player-table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: max-content;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.player-table td {
+  height: 38px;
+  padding: 4px 16px 4px 0;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.player-table td:first-child {
+  padding: 4px 10px 4px 12px;
+}
+
+.player-table td:first-child img {
+  display: block;
+  border-radius: 6px;
+}
+
+.player-table tbody tr:nth-child(odd):not(:first-child) td {
+  background: var(--row-alt);
+}
+
+.player-section-title {
+  text-align: left;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.player-table tbody + tbody .player-section-title {
+  border-top: 1px solid var(--border);
+}
+
+.player-section-title h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  margin: 10px 0;
+  color: var(--text-strong);
+}
+
+.player-team-chip {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 3px;
+  background: var(--text-faint);
+}
+
+.player-team-teamOne .player-team-chip {
+  background: var(--team-one);
+}
+
+.player-team-teamTwo .player-team-chip {
+  background: var(--team-two);
+}
+
+.player-team-teamOne {
+  color: var(--team-one-text);
+}
+
+.player-team-teamTwo {
+  color: var(--team-two-text);
+}
+
+.player-table .player-group-start td,
+.player-table .player-group-start .player-premade-cell {
+  border-top: 1px solid var(--accent-border);
+}
+
+.player-name-recovered {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 6px;
+  border: 1px solid var(--accent-border);
+  border-radius: 9px;
+  color: var(--accent-text);
+  font-size: 11px;
+}
+
+.player-copy-name {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.player-copy-name:hover {
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.player-copy-name:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 3px;
+}
+
+.encounter-list {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 5px 12px;
+  max-width: 440px;
+  margin-left: 12px;
+  white-space: normal;
+  vertical-align: middle;
+  font-size: 12px;
+}
+
+.encounter-game {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface-sunken);
+}
+
+.encounter-index { color: var(--text-muted); }
+.encounter-ally { color: var(--success); }
+.encounter-enemy { color: var(--danger); }
+.encounter-note { margin-left: 10px; color: var(--text-muted); font-size: 12px; }
+.encounter-list .encounter-note { margin-left: 0; }
+
+.player-game-title {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.player-result-win {
+  color: var(--success);
+}
+
+.player-result-lose {
+  color: var(--danger);
+}
+
+/* The spanning label makes membership visible without extra player rows. */
+.player-premade-cell {
+  width: 58px;
+  min-width: 58px;
+  padding: 6px 10px;
+  text-align: center;
+  vertical-align: middle;
+  border-right: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.player-premade-cell.is-premade {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  border-left: 3px solid var(--accent-border);
+}
+
+.player-premade-label {
+  display: inline-block;
+  padding: 3px 5px;
+}
+
+.is-premade .player-premade-label {
+  font-weight: 700;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.player-table .player-premade-cell + td {
+  padding-left: 10px;
+}
+
+.player-table .player-premade-cell + td img {
+  display: block;
+  border-radius: 6px;
+}

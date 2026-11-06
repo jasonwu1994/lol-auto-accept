@@ -1,0 +1,132 @@
+name: Release Windows executable
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Validate release version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          if ($tag -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') {
+            throw "Expected a stable version tag such as v2.0.0"
+          }
+          $expected = $tag.Substring(1)
+          $package = Get-Content package.json -Raw | ConvertFrom-Json
+          $tauri = Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
+          $cargo = [regex]::Match((Get-Content src-tauri/Cargo.toml -Raw), '(?m)^version\s*=\s*"([^"]+)"').Groups[1].Value
+          foreach ($version in @($package.version, $tauri.version, $cargo)) {
+            if ($version -ne $expected) { throw "Tag and source versions must match: $tag" }
+          }
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+
+      - name: Install locked frontend dependencies
+        run: |
+          npm install --global yarn@1.22.22
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          yarn install --frozen-lockfile --non-interactive
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Set up pinned Rust toolchain
+        run: |
+          rustup show active-toolchain
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          rustc --version
+
+      - name: Restore Rust build cache
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+        with:
+          workspaces: src-tauri -> target
+          shared-key: windows-release
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Verify frontend
+        run: |
+          yarn typecheck
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          yarn test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          yarn build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify Rust
+        working-directory: src-tauri
+        run: |
+          cargo fmt --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --release --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo clippy --release --locked --all-targets -- -D warnings
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build standalone executable
+        run: |
+          npm run tauri -- build --ci --no-bundle -- --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (!(Test-Path -LiteralPath src-tauri/target/release/lol-auto-accept.exe)) {
+            throw "Release executable was not produced"
+          }
+
+      - name: Publish GitHub Release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          # Asset is named from the version without the leading "v": v2.1.0 -> lol-app-2.1.0.exe
+          $assetName = "lol-app-$($tag.Substring(1)).exe"
+          $asset = Join-Path $env:RUNNER_TEMP $assetName
+          Copy-Item -LiteralPath 'src-tauri/target/release/lol-auto-accept.exe' -Destination $asset
+          $notes = Join-Path $env:RUNNER_TEMP 'release-notes.md'
+          $checksum = (Get-FileHash -LiteralPath $asset -Algorithm SHA256).Hash.ToLowerInvariant()
+          @(
+            'Windows x64 executable. Requires Microsoft Edge WebView2 Runtime.'
+            ''
+            'Settings: %APPDATA%\io.github.jasonwu1994.lolautoaccept\config.json'
+            'History: %APPDATA%\io.github.jasonwu1994.lolautoaccept\history\history.sqlite3'
+            ''
+            "SHA256 (${assetName}): $checksum"
+          ) | Set-Content -LiteralPath $notes -Encoding utf8
+          gh release view $tag --json tagName --jq .tagName
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag $asset --clobber
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            gh release edit $tag --draft=false --title $tag --notes-file $notes
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } else {
+            gh release create $tag $asset --verify-tag --draft --title $tag --notes-file $notes
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            gh release edit $tag --draft=false
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }

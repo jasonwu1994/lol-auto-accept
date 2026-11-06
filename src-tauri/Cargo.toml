@@ -1,0 +1,37 @@
+[package]
+name = "lol-auto-accept"
+version = "2.2.1"
+edition = "2024"
+rust-version = "1.99"
+license = "GPL-3.0"
+
+[lib]
+name = "lol_auto_accept_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "=2.7.4", features = [] }
+
+[dependencies]
+tauri = { version = "=2.12.5", features = ["tray-icon", "image-ico"] }
+tauri-plugin-single-instance = "=2.5.5"
+tauri-plugin-opener = "=2.7.2"
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.154"
+reqwest = { version = "=0.13.5", default-features = false, features = ["json", "native-tls"] }
+tokio = { version = "=1.54.1", features = ["full"] }
+tokio-util = { version = "=0.7.20", features = ["rt"] }
+tokio-tungstenite = { version = "=0.30.0", features = ["native-tls"] }
+native-tls = "=0.2.18"
+futures-util = "=0.3.34"
+base64 = "=0.23.1"
+sysinfo = "=0.40.1"
+rusqlite = { version = "=0.41.1", features = ["bundled"] }
+sha2 = "=0.11.1"
+tempfile = "=3.27.0"
+arboard = "=3.7.0"
+
+# Tests only: the loopback TLS server generates a throwaway certificate at run time.
+[dev-dependencies]
+rcgen = "=0.14.10"
+rustls = { version = "=0.23.46", default-features = false, features = ["ring", "std", "tls12"] }

@@ -8,13 +8,38 @@
     "selectedRole": "列隊規則",
     "about": "關於"
   },
+  "layout": {
+    "chooseLanguage": "選擇語言",
+    "appearance": "外觀模式",
+    "appearanceModes": {
+      "light": "淺色",
+      "dark": "深色",
+      "system": "跟隨系統"
+    },
+    "theme": "主題",
+    "navigation": "主選單",
+    "reorder": "調整順序",
+    "dragPage": "拖曳{{page}}調整順序；聚焦後可用方向鍵移動",
+    "saveOrder": "完成",
+    "savingOrder": "儲存中…",
+    "cancelOrder": "取消",
+    "recentData": "最近遇過有 {{count}} 場資料",
+    "newVersion": "新版",
+    "language": "語言",
+    "darkMode": "深色模式",
+    "onlineLabel": "線上",
+    "onlineCount": "近五分鐘活躍：{{count}} 人"
+  },
   "main": {
+    "rankedChoiceBoth": "兩者",
     "acceptMatchmaking": "接受對戰",
     "declineMatchmaking": "拒絕對戰",
     "forceKillLoL": "強制關閉LOL",
     "autoAccept": "自動接受對戰",
-    "displayTeammateScore": "選角時，顯示隊友積分",
-    "displayRecentTeammate": "選角時，顯示最近遇過",
+    "displayTeammateScore": "顯示隊友積分",
+    "displayRecentTeammate": "顯示最近遇過",
+    "hiddenPlayerHistory": "查隱藏名稱玩家近期對戰",
+    "hiddenPlayerHistoryTitle": "隱藏名稱查詢",
     "showTeammateRankedType": {
       "soloDuo": "單雙",
       "flex": "彈性",
@@ -46,7 +71,30 @@
       "lolClosed": "LOL已關閉",
       "lolStarting": "LOL啟動中"
     },
-    "closedProcessesCount": "已關閉 {{count}} 個處理程序"
+    "closedProcessesCount": "已關閉 {{count}} 個處理程序",
+    "currentStatus": "目前狀態",
+    "connection": {
+      "connected": "已連線至英雄聯盟客戶端",
+      "disconnected": "尚未連線至英雄聯盟客戶端"
+    },
+    "autoAcceptDescription": "排到對戰立即接受",
+    "phaseSteps": {
+      "label": "遊戲階段",
+      "none": "大廳",
+      "lobby": "組隊",
+      "matchmaking": "列隊",
+      "readyCheck": "接受",
+      "champSelect": "選角",
+      "inGame": "遊戲"
+    },
+    "champSelectAssist": "選角輔助",
+    "autoAramTopmost": "隨機單中選角時自動置頂",
+    "autoAramTopmostDescription": "適用隨機單中與大亂鬥；視窗顯示時才生效，進入遊戲後取消自動置頂，手動置頂不受影響。",
+    "teammateRankedTypeLabel": "隊友積分類型",
+    "recentTeammateGameCount": "檢查最近場數",
+    "enableHovercard": "啟用名片修改",
+    "hovercardQueue": "隊列",
+    "hovercardTier": "段位"
   },
   "gamePhases": {
     "none": "遊戲大廳",
@@ -57,9 +105,13 @@
     "gameStart": "遊戲開始",
     "inProgress": "遊戲中",
     "preEndOfGame": "遊戲即將結束",
-    "endOfGame": "遊戲結束"
+    "endOfGame": "遊戲結束",
+    "unknown": "未知遊戲狀態"
   },
   "aram": {
+    "selectAll": "選取全部",
+    "selectChampion": "選取英雄",
+    "searchChampions": "搜尋英雄",
     "alwaysOnTop": "保持最上層",
     "clear": "清空",
     "champion": "英雄",
@@ -67,6 +119,9 @@
     "isYou": "這是你",
     "balanceTab": "平衡調整",
     "pickTab": "選角",
+    "benchTitle": "待選英雄",
+    "swapChampion": "交換為 {{champion}}",
+    "benchUnavailable": "目前無法交換此英雄",
     "balance": {
       "damage_dealt": "造成傷害",
       "damage_taken": "承受傷害",
@@ -82,10 +137,25 @@
     "author": "作者",
     "currentVersion": "目前版本",
     "latestVersion": "最新版本",
-    "help": "如果這個程式對您有幫助，請給個⭐\uFE0F！\n<br/>\n這是對我最大的鼓勵！\n",
+    "help": "如果這個程式對您有幫助，請給個⭐️！\n<br/>\n這是對我最大的鼓勵！\n",
     "github": "查看 GitHub 頁面"
   },
   "common": {
+    "close": "關閉",
+    "encounters": {
+      "label": "最近 {{count}} 場與目前隊友的同場紀錄",
+      "loading": "近 {{count}} 場查詢中…",
+      "game": "往前第 {{count}} 場，1 代表上一場",
+      "ally": "同隊",
+      "enemy": "敵對",
+      "allyDescription": "往前第 {{count}} 場，曾與這位目前隊友同隊",
+      "enemyDescription": "往前第 {{count}} 場，曾與這位目前隊友敵對",
+      "none": "已查 {{count}} 場，未遇到目前隊友",
+      "partial": "部分對局無法取得",
+      "error": "無法取得近期對戰",
+      "unknownTeam": "本場隊伍未知，無法比對隊友",
+      "soloFallback": "本場組隊資料缺失，以單排顯示；旁列為歷史同隊／敵對紀錄"
+    },
     "teamOne": "藍方",
     "teamTwo": "紅方",
     "premade": {
@@ -93,9 +163,27 @@
       "duo": "雙排",
       "trio": "三排",
       "quad": "四排",
-      "quint": "五排"
+      "quint": "五排",
+      "unknown": "未知"
     },
     "copy_success": "已複製",
-    "copy_failure": "複製失敗"
+    "copyPremade": "複製此玩家的整組名單",
+    "copy_failure": "複製失敗",
+    "operationFailed": "操作失敗",
+    "unavailable": "無法取得",
+    "clientDisconnected": "尚未連線至英雄聯盟客戶端。開啟客戶端後即可查看遊戲資料。",
+    "noGameData": "目前遊戲階段沒有可顯示的資料。",
+    "noRecentPlayers": "目前對戰沒有可顯示的近期共同對局。",
+    "noChampSelectData": "進入選角階段後會顯示英雄選取資料。",
+    "loading": "載入中…",
+    "unknown": "未知",
+    "playerList": "玩家列表",
+    "recoveredName": "補回玩家",
+    "recoveredNameDescription": "原隊伍名單缺少此玩家，已從本場選角資料補回；隊伍及組隊資訊仍可能未知。",
+    "unknownTeam": "隊伍未知",
+    "wins": "勝場",
+    "damage": "傷害",
+    "currentChampion": "本場",
+    "currentChampionTitle": "這個玩家在本場使用的英雄"
   }
 }

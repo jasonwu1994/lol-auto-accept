@@ -1,6 +1,10 @@
+import {rosterRecoveryKey} from '../../components/common/currentPlayers';
+import {retainDisplay} from '../../desktop/retainedDisplay';
 import {translate} from '../../i18n/i18n';
 
 const GameReducer = (prevState = {
+  sessionIdentity: {connectionGeneration:0,sessionKey:''},
+  aramPreferences: [],
   gameflowSession: {},
   champSelectSession: {},
   chatRoomId: '',
@@ -12,6 +16,14 @@ const GameReducer = (prevState = {
 }, action) => {
   let newState = {...prevState}
   switch (action.type) {
+    case 'change-rosterRecovery': {
+      if (!prevState.gameflowIsLive || JSON.stringify(prevState.sessionIdentity) !== action.data.identity || rosterRecoveryKey(prevState.gameflowSession) !== action.data.key) return prevState;
+      const old = prevState.rosterRecovery?.key === action.data.key ? prevState.rosterRecovery.players : {};
+      return {...prevState, rosterRecovery: {key: action.data.key, players: {...old, ...action.data.players}}};
+    }
+    case 'change-displaySnapshot': return retainDisplay(prevState,action.data);
+    case 'change-sessionIdentity': return {...prevState,sessionIdentity:action.data};
+    case 'change-aramPreferences': return {...prevState, aramPreferences:action.data};
     case "change-gameflowSession":
       newState.gameflowSession = action.data
       return newState
@@ -59,6 +71,7 @@ export function gamePhaseToAppState(phase) {
       return 'gamePhases.preEndOfGame'
     case 'EndOfGame':
       return 'gamePhases.endOfGame'
+    default: return 'gamePhases.unknown'
   }
 }
 

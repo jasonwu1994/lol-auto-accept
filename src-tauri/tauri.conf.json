@@ -1,0 +1,37 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "LoL Auto Accept",
+  "version": "2.2.1",
+  "identifier": "io.github.jasonwu1994.lolautoaccept",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://127.0.0.1:1420",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "create": false,
+        "visible": false,
+        "dragDropEnabled": false,
+        "title": "LoL Auto Accept",
+        "width": 800,
+        "height": 600,
+        "minWidth": 640,
+        "minHeight": 480
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self' https://www.googletagmanager.com; style-src 'self' 'unsafe-inline'; img-src 'self' https://www.google-analytics.com https://region1.google-analytics.com data: https://ddragon.leagueoflegends.com https://raw.communitydragon.org https://cdn.communitydragon.org; connect-src https://www.google-analytics.com https://region1.google-analytics.com ipc: http://ipc.localhost; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-src 'none'",
+      "devCsp": "default-src 'self'; script-src 'self' https://www.googletagmanager.com; style-src 'self' 'unsafe-inline'; img-src 'self' https://www.google-analytics.com https://region1.google-analytics.com data: https://ddragon.leagueoflegends.com https://raw.communitydragon.org https://cdn.communitydragon.org; connect-src https://www.google-analytics.com https://region1.google-analytics.com ipc: http://ipc.localhost http://127.0.0.1:1420 ws://127.0.0.1:1420; font-src 'self' data:; object-src 'none'; frame-src 'none'"
+    }
+  },
+  "bundle": {
+    "active": false,
+    "icon": [
+      "icons/icon.ico"
+    ]
+  }
+}

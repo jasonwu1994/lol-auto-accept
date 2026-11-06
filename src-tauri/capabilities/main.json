@@ -1,0 +1,12 @@
+{
+  "identifier": "main",
+  "description": "Local main window",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "allow-app"
+  ]
+}

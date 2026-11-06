@@ -8,13 +8,38 @@
     "selectedRole": "Role",
     "about": "About"
   },
+  "layout": {
+    "chooseLanguage": "Choose language",
+    "appearance": "Appearance",
+    "appearanceModes": {
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    },
+    "theme": "Theme",
+    "navigation": "Main menu",
+    "reorder": "Reorder tabs",
+    "dragPage": "Drag {{page}} to reorder; use arrow keys when focused",
+    "saveOrder": "Done",
+    "savingOrder": "Saving…",
+    "cancelOrder": "Cancel",
+    "recentData": "{{count}} recent encounter games available",
+    "newVersion": "New",
+    "language": "Language",
+    "darkMode": "Dark mode",
+    "onlineLabel": "Online",
+    "onlineCount": "Active in the last five minutes: {{count}}"
+  },
   "main": {
+    "rankedChoiceBoth": "Both",
     "acceptMatchmaking": "Accept Matchmaking",
     "declineMatchmaking": "Decline Matchmaking",
     "forceKillLoL": "Force Close LOL",
     "autoAccept": "Auto Accept Match",
-    "displayTeammateScore": "Show teammates score during Champion Selection",
-    "displayRecentTeammate": "Show recent teammates during Champion Selection",
+    "displayTeammateScore": "Show teammate ranks",
+    "displayRecentTeammate": "Show recent teammates",
+    "hiddenPlayerHistory": "Check hidden-name players' recent games",
+    "hiddenPlayerHistoryTitle": "Hidden-name history",
     "showTeammateRankedType": {
       "soloDuo": "Solo/Duo",
       "flex": "Flex",
@@ -46,7 +71,30 @@
       "lolClosed": "LoL closed",
       "lolStarting": "LoL starting"
     },
-    "closedProcessesCount": "Closed {{count}} processes"
+    "closedProcessesCount": "Closed {{count}} processes",
+    "currentStatus": "Current status",
+    "connection": {
+      "connected": "Connected to the League client",
+      "disconnected": "Not connected to the League client"
+    },
+    "autoAcceptDescription": "Accept as soon as a match is found",
+    "phaseSteps": {
+      "label": "Game phase",
+      "none": "Home",
+      "lobby": "Lobby",
+      "matchmaking": "Queue",
+      "readyCheck": "Accept",
+      "champSelect": "Pick",
+      "inGame": "Game"
+    },
+    "champSelectAssist": "Champ select assist",
+    "autoAramTopmost": "Keep on top during ARAM champion select",
+    "autoAramTopmostDescription": "ARAM and ARAM: Mayhem. Applies only while visible; automatic topmost ends when the game starts. Manual topmost is preserved.",
+    "teammateRankedTypeLabel": "Teammate rank queue",
+    "recentTeammateGameCount": "Recent games to check",
+    "enableHovercard": "Enable hovercard edit",
+    "hovercardQueue": "Queue",
+    "hovercardTier": "Tier"
   },
   "gamePhases": {
     "none": "Game Lobby",
@@ -57,9 +105,13 @@
     "gameStart": "Game Start",
     "inProgress": "In Progress",
     "preEndOfGame": "Pre-End of Game",
-    "endOfGame": "End of Game"
+    "endOfGame": "End of Game",
+    "unknown": "Unknown game state"
   },
   "aram": {
+    "selectAll": "Select all",
+    "selectChampion": "Select champion",
+    "searchChampions": "Search champions",
     "alwaysOnTop": "Always On Top",
     "clear": "Clear",
     "champion": "Champion",
@@ -67,6 +119,9 @@
     "isYou": "You",
     "balanceTab": "Balance",
     "pickTab": "Pick",
+    "benchTitle": "Available bench champions",
+    "swapChampion": "Swap to {{champion}}",
+    "benchUnavailable": "This champion is not currently available to swap",
     "balance": {
       "damage_dealt": "Damage Dealt",
       "damage_taken": "Damage Taken",
@@ -82,10 +137,25 @@
     "author": "Author",
     "currentVersion": "Current Version",
     "latestVersion": "Latest Version",
-    "help": "If you find this project useful, consider giving it a star ⭐\uFE0F！\n<br/>\nYour support is highly appreciated！\n",
+    "help": "If you find this project useful, consider giving it a star ⭐️！\n<br/>\nYour support is highly appreciated！\n",
     "github": "View on GitHub"
   },
   "common": {
+    "close": "Close",
+    "encounters": {
+      "label": "Current teammates encountered in the last {{count}} games",
+      "loading": "Checking last {{count}} games…",
+      "game": "{{count}} games ago; 1 means the previous game",
+      "ally": "Ally",
+      "enemy": "Opponent",
+      "allyDescription": "Played on the same team {{count}} games ago",
+      "enemyDescription": "Played on opposing teams {{count}} games ago",
+      "none": "Checked {{count}} games; no current teammates found",
+      "partial": "Some games are unavailable",
+      "error": "Recent games unavailable",
+      "unknownTeam": "Current team unknown; cannot compare teammates",
+      "soloFallback": "Current party data is missing; shown as solo. Adjacent badges describe past games."
+    },
     "teamOne": "Blue Team",
     "teamTwo": "Red Team",
     "premade": {
@@ -93,9 +163,27 @@
       "duo": "Duo",
       "trio": "Trio",
       "quad": "Quad",
-      "quint": "Quint"
+      "quint": "Quint",
+      "unknown": "Unknown"
     },
     "copy_success": "Copied",
-    "copy_failure": "Copy failed"
+    "copyPremade": "Copy this player's premade group",
+    "copy_failure": "Copy failed",
+    "operationFailed": "Operation failed",
+    "unavailable": "Unavailable",
+    "clientDisconnected": "League client is not connected. Open the client to view game data.",
+    "noGameData": "No game data is available for the current phase.",
+    "noRecentPlayers": "No recent encounters are available for the current game.",
+    "noChampSelectData": "Champion selection data appears during champion select.",
+    "loading": "Loading…",
+    "unknown": "Unknown",
+    "playerList": "Players",
+    "recoveredName": "Recovered player",
+    "recoveredNameDescription": "Player missing from the team roster was recovered from current champion selections; team and premade information may remain unknown.",
+    "unknownTeam": "Team unknown",
+    "wins": "Wins",
+    "damage": "Damage",
+    "currentChampion": "Now",
+    "currentChampionTitle": "Champion this player has in the current game"
   }
 }

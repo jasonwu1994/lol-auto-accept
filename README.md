@@ -5,8 +5,8 @@
 
 <div align="center">
 
-![Static Badge](https://img.shields.io/badge/react-18.2.0-blue)
-![Static Badge](https://img.shields.io/badge/electron-28.3.3-blue)
+![Static Badge](https://img.shields.io/badge/react-19-blue)
+![Static Badge](https://img.shields.io/badge/Tauri-2.12.5-blue)
 
 [![GitHub release](https://img.shields.io/github/v/release/jasonwu1994/lol-auto-accept)](https://github.com/jasonwu1994/lol-auto-accept/releases)
 ![downloads](https://img.shields.io/github/downloads/jasonwu1994/lol-auto-accept/total)
@@ -21,7 +21,7 @@
 [English](./README_en.md) | 中文
 
 ## ✨ 功能
-1. **🚀自動接受對戰**：1秒內會自動接受對戰  
+1. **🚀自動接受對戰**：啟用後，在收到有效的對戰確認時自動接受
    如果排到對戰且已經自動接受，可以反悔，只需要在程式介面中按下"拒絕對戰"
 2. **🏆選角時顯示隊友積分**：如果所在伺服器已不顯示玩家名稱，功能失效
 3. **👥顯示雙排玩家**：遊戲中，顯示雙方雙排(多排)玩家，會按照人數排序
@@ -30,25 +30,13 @@
 6. **🪪修改名片**：滑鼠放到自己的頭像上可看到效果
 
 ## 🌟 說明
-- **超低CPU使用率**：使用訂閱事件的方式，只有特定事件發生時，程式才會運作，其他時候CPU使用率幾乎為0
+- **背景運作**：關閉視窗後仍在系統匣執行；可在系統匣選擇 Exit 完全退出
 - **不干預遊戲內檔案**：不會對遊戲檔案進行注入或修改，保持遊戲純淨
-- **安全調用API**：使用與LeagueClient相同的API，安全性高
+- **本機用戶端整合**：透過 LeagueClient API 運作；官方用戶端更新或缺少資料時，部分功能可能無法使用
 
 ## 🖥 截圖
-<p float="left">
-  <img src="resources/github/screenshot/zh/main.jpg" width="48%" />
-  <img src="resources/github/screenshot/zh/main_dark.jpg" width="48%" />
-</p>
-<p float="left">
-  <img src="resources/github/screenshot/zh/rank.jpg" width="48%" />
-  <img src="resources/github/screenshot/zh/duo.jpg" width="48%" />
-</p>
-<p float="left">
-  <img src="resources/github/screenshot/zh/ARAM.jpg" width="48%" />
-  <img src="resources/github/screenshot/zh/role.jpg" width="48%" />
-</p>
-<p float="left">
-  <img src="resources/github/screenshot/zh/teammate_rank.jpg" width="48%" />
+<p align="center">
+  <img src="resources/github/screenshot/zh/screenshot.png" width="80%" />
 </p>
 
 ## 🔍 FAQ
@@ -61,11 +49,14 @@
 - 功能完全依賴LeagueClient API，如果官方API更新，可能導致部分功能失效
 
 ### 3. 如何刪除程式？
-- 把資料夾刪除即可，本程式不會在電腦其他地方生成檔案
+- 在系統匣選擇 Exit 後，刪除 EXE 即可。設定與歷史資料保留。
 
 ### 4. 設定檔在哪裡？
 - 一般情況不需要動到設定檔
-- lol-app-win32-x64\resources\app\app-config.json
+- 設定：`%APPDATA%\io.github.jasonwu1994.lolautoaccept\config.json`
+- 歷史：`%APPDATA%\io.github.jasonwu1994.lolautoaccept\history\history.sqlite3`
+- 舊版歷史資料會在首次啟動時自動複製到新位置，舊檔保留作為備份。
+- 請先正常關閉舊版。首次啟動會讀取設定目錄或程式旁的 `app-config.json`（也支援舊版 `resources/app/app-config.json`）；缺值使用預設設定，舊檔不改寫。戰績由遊戲客戶端按需讀取，無需匯入。
 
 ## 🎉 結尾
   **如果這個程式對您有幫助，請給個⭐️！**  

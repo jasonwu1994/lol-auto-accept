@@ -1,17 +1,37 @@
+import {normalizeDesignTheme} from '../../styles/designThemes';
+import {DEFAULT_NAV_ORDER} from '../../components/common/navigationOrder';
+
 const ConfigReducer = (prevState = {
   isAutoAccept: true,
   isShowRecentTeammate: true,
   recentTeammateCheckGameCount: 20,
+  isCheckHiddenPlayerHistory: true,
+  hiddenPlayerHistoryGameCount: 5,
   isShowTeammateRanked: true,
   showTeammateRankedType: showTeammateRankedType.BOTH,
   isHovercard: false,
   hovercardTierType: tierType.CHALLENGER,
   hovercardRankedType: rankedType.SOLO,
   language: language.zh,
-  isDarkMode: localStorage.getItem('theme') === 'dark' ? true : false
+  isDarkMode: globalThis.__LOL_INITIAL_DARK_MODE__ !== false,
+  appearanceMode: globalThis.__LOL_INITIAL_APPEARANCE_MODE__ ?? null,
+  designTheme: normalizeDesignTheme(globalThis.__LOL_INITIAL_DESIGN_THEME__),
+  schemaVersion: 1,
+  alwaysOnTop: false,
+  isAutoAramTopmost: false,
+  windowSize: null,
+  windowPosition: null,
+  navOrder: [...DEFAULT_NAV_ORDER]
 }, action) => {
   let newState = {...prevState}
   switch (action.type) {
+    case 'change-appearanceMode': return ['light','dark','system'].includes(action.data) ? {...prevState,appearanceMode:action.data,isDarkMode:action.data === 'system' ? prevState.isDarkMode : action.data === 'dark'} : prevState;
+    case 'change-designTheme': return {...prevState,designTheme:normalizeDesignTheme(action.data)};
+    case 'change-isAutoAramTopmost': return {...prevState,isAutoAramTopmost:action.data};
+    case 'change-navOrder': return {...prevState,navOrder:action.data};
+    case 'change-isCheckHiddenPlayerHistory': return {...prevState,isCheckHiddenPlayerHistory:action.data};
+    case 'change-hiddenPlayerHistoryGameCount': return {...prevState,hiddenPlayerHistoryGameCount:action.data};
+    case 'change-alwaysOnTop': return {...prevState,alwaysOnTop:action.data};
     case "change-isAutoAccept":
       newState.isAutoAccept = action.data
       return newState
@@ -44,6 +64,7 @@ const ConfigReducer = (prevState = {
       return newState
     case "change-isDarkMode":
       newState.isDarkMode = action.data
+      newState.appearanceMode = action.data ? 'dark' : 'light'
       return newState
     default:
       return prevState
