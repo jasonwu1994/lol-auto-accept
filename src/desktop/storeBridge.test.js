@@ -16,3 +16,19 @@ it('does not dispatch or emit language changes for repeated disconnected snapsho
   expect(fixture.i18n.changeLanguage).toHaveBeenCalledWith('en');
   expect(fixture.dispatch.mock.calls.slice(count).map(([action])=>action.type)).toContain('change-appState');
 });
+it('keeps showing the current state while a live connection re-reads a phase change',()=>{
+  fixture.dispatch.mockImplementation(()=>{});
+  const base={configRevision:2,config:{language:'en'},gameflowSession:null,champSelectSession:null,lobbyMembers:null,aramPreferences:[]};
+  const dispatchedAfter=count=>fixture.dispatch.mock.calls.slice(count).map(([action])=>action);
+  const closed=action=>action.type==='change-appState'&&action.data==='main.appStates.lolClosed';
+  applySnapshot({...base,connection:'Connected',connectionGeneration:7,phase:'ChampSelect'});
+  let count=fixture.dispatch.mock.calls.length;
+  applySnapshot({...base,connection:'Connecting',connectionGeneration:7,phase:'None'});
+  expect(dispatchedAfter(count).some(closed)).toBe(false);
+  expect(dispatchedAfter(count).some(action=>action.type==='change-connection')).toBe(false);
+  count=fixture.dispatch.mock.calls.length;
+  applySnapshot({...base,connection:'Disconnected',connectionGeneration:7,phase:'None'});
+  expect(dispatchedAfter(count).some(closed)).toBe(true);
+  applySnapshot({...base,connection:'Connecting',connectionGeneration:8,phase:'None'});
+  expect(fixture.dispatch).toHaveBeenCalledWith({type:'change-connection',data:'Connecting'});
+});

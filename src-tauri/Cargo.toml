@@ -1,6 +1,6 @@
 [package]
 name = "lol-auto-accept"
-version = "2.2.1"
+version = "2.2.2"
 edition = "2024"
 rust-version = "1.99"
 license = "GPL-3.0"

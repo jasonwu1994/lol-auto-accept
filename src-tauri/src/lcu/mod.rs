@@ -171,6 +171,15 @@ pub struct OperationResult {
 
 type CachedRead = Arc<Mutex<Option<(Instant, AppResult<Value>)>>>;
 
+/// How often a live connection re-checks the client process and re-reads its state.
+const CLIENT_POLL: Duration = if cfg!(test) {
+    Duration::from_secs(60)
+} else {
+    Duration::from_secs(2)
+};
+/// Delay before re-reading after a snapshot attempt that did not complete.
+const REFRESH_RETRY: Duration = Duration::from_millis(300);
+
 struct State {
     snapshot: LcuSnapshot,
     transport: Option<Arc<Transport>>,
@@ -828,11 +837,15 @@ impl LcuService {
                         Self::replace_session(&mut state);
                         self.publish(&mut state);
                     }
-                    if self.connected(transport, &shutdown).await.is_ok() {
-                        failures = 0;
+                    let mut established = false;
+                    let result = self.connected(transport, &shutdown, &mut established).await;
+                    // Backoff is for clients that cannot be reached, not for one that
+                    // worked and later went away.
+                    failures = if result.is_ok() || established {
+                        0
                     } else {
-                        failures = failures.saturating_add(1);
-                    }
+                        failures.saturating_add(1)
+                    };
                 }
             }
             self.disconnected(if failures == 0 {
@@ -924,6 +937,7 @@ impl LcuService {
         &self,
         transport: Arc<Transport>,
         shutdown: &CancellationToken,
+        established: &mut bool,
     ) -> AppResult<()> {
         let mut socket = transport.websocket().await?;
         let (hints, mut updates) = watch::channel(0u64);
@@ -949,25 +963,26 @@ impl LcuService {
         let snapshots = async {
             // The reader remains active during all GETs. Buffered events trigger a fresh
             // snapshot instead of overwriting it with potentially older event payloads.
-            self.refresh(&transport).await?;
-            let mut poll = tokio::time::interval_at(
-                tokio::time::Instant::now() + Duration::from_secs(2),
-                Duration::from_secs(2),
-            );
+            let mut healthy = self.try_refresh(&transport).await?;
+            *established |= healthy;
+            let mut poll =
+                tokio::time::interval_at(tokio::time::Instant::now() + CLIENT_POLL, CLIENT_POLL);
             poll.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             loop {
+                let retry = tokio::time::sleep(REFRESH_RETRY);
                 tokio::select! {
                     _ = shutdown.cancelled() => return Ok(()),
                     result = updates.changed() => {
                         result.map_err(|_| AppError::new("Disconnected", "Websocket closed"))?;
-                        self.refresh(&transport).await?;
                     },
                     _ = poll.tick() => {
                         let discovered = tokio::task::spawn_blocking(discovery::discover).await.map_err(|_| AppError::new("Internal", "Client discovery failed"))??;
                         if !discovered.as_ref().is_some_and(|v| transport.matches(v)) { return Err(AppError::new("Disconnected", "Client process changed")); }
-                        self.refresh(&transport).await?;
                     },
+                    _ = retry, if !healthy => {},
                 }
+                healthy = self.try_refresh(&transport).await?;
+                *established |= healthy;
             }
         };
         tokio::select! { result = reader => result, result = snapshots => result }
@@ -978,6 +993,44 @@ impl LcuService {
             Ok(value) => Ok(value),
             Err(error) if error.code == "Unsupported" => Ok(Value::Null),
             Err(error) => Err(error),
+        }
+    }
+
+    /// For data that is only displayed: an unavailable resource reads as unknown so it cannot
+    /// hold back the phase that drives automation.
+    async fn display_read(transport: &Transport, operation: ReadOperation) -> AppResult<Value> {
+        match transport.read(operation).await {
+            Err(error)
+                if matches!(
+                    error.code.as_str(),
+                    "Unauthorized" | "Disconnected" | "StaleSession"
+                ) =>
+            {
+                Err(error)
+            }
+            Err(_) => Ok(Value::Null),
+            Ok(value) => Ok(value),
+        }
+    }
+
+    /// Runs one snapshot attempt on a live connection. `Ok(false)` means the attempt produced no
+    /// snapshot but the connection is still usable, so the caller should retry on it. Rapid phase
+    /// changes such as a dodge returning to queue land here; reconnecting for them would leave no
+    /// connection when the next ready check arrives.
+    async fn try_refresh(&self, transport: &Transport) -> AppResult<bool> {
+        let Err(error) = self.refresh(transport).await else {
+            return Ok(true);
+        };
+        match error.code.as_str() {
+            "StaleSession" => Ok(false),
+            "Unsupported" | "Io" | "InvalidInput" | "RateLimited" | "Timeout" => {
+                let mut state = self.state.lock().await;
+                if state.snapshot.connection == "Connected" {
+                    self.invalidate_state(&mut state);
+                }
+                Ok(false)
+            }
+            _ => Err(error),
         }
     }
 
@@ -1001,7 +1054,7 @@ impl LcuService {
             self.invalidate().await;
         }
         let sequence = self.state.lock().await.sequence;
-        let gameflow = Self::optional_read(transport, ReadOperation::Gameflow).await?;
+        let gameflow = Self::display_read(transport, ReadOperation::Gameflow).await?;
         let champ = if phase == "ChampSelect" {
             transport.read(ReadOperation::ChampSelect).await?
         } else {
@@ -1016,7 +1069,7 @@ impl LcuService {
             sequence,
         )
         .await?;
-        let lobby = Self::optional_read(transport, ReadOperation::LobbyMembers).await?;
+        let lobby = Self::display_read(transport, ReadOperation::LobbyMembers).await?;
         if transport.read(ReadOperation::Phase).await?.as_str() != Some(&phase)
             || Self::optional_read(transport, ReadOperation::CurrentSummoner)
                 .await?
@@ -2213,6 +2266,176 @@ mod tests {
             .record_result("old", &Ok(Value::Null), 0, "fixture")
             .await;
         assert!(service.snapshot().await.last_operation.is_none());
+    }
+
+    /// Replays the HTTP head the fixture already consumed so tungstenite can run the handshake.
+    struct ReplayStream {
+        head: std::io::Cursor<Vec<u8>>,
+        stream: transport::tests::FixtureStream,
+    }
+
+    impl std::io::Read for ReplayStream {
+        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            match self.head.read(buf)? {
+                0 => self.stream.read(buf),
+                read => Ok(read),
+            }
+        }
+    }
+
+    impl std::io::Write for ReplayStream {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.stream.write(buf)
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            self.stream.flush()
+        }
+    }
+
+    async fn wait_for_snapshot(service: &LcuService, expected: impl Fn(&LcuSnapshot) -> bool) {
+        tokio::time::timeout(Duration::from_secs(10), async {
+            while !expected(&service.snapshot().await) {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("snapshot did not reach the expected state");
+    }
+
+    #[tokio::test]
+    #[allow(clippy::result_large_err)] // Tungstenite fixes the handshake callback error type.
+    async fn requeue_after_dodge_recovers_without_dropping_the_connection() {
+        let (listener, acceptor, port) = fixture_listener();
+        let phase = Arc::new(std::sync::Mutex::new("ChampSelect".to_owned()));
+        let (lagging_tx, lagging_rx) = tokio::sync::oneshot::channel();
+        let (event_tx, event_rx) = std::sync::mpsc::channel::<String>();
+        let server_phase = phase.clone();
+        // Detached: it blocks in accept until the test process exits.
+        std::thread::spawn(move || {
+            let mut event_rx = Some(event_rx);
+            let mut lagging_tx = Some(lagging_tx);
+            loop {
+                let (mut stream, request) = accept_http(&listener, &acceptor);
+                if request.starts_with("GET / ") {
+                    let events = event_rx.take().unwrap();
+                    std::thread::spawn(move || {
+                        let replay = ReplayStream {
+                            head: std::io::Cursor::new(request.into_bytes()),
+                            stream,
+                        };
+                        let mut socket = tokio_tungstenite::tungstenite::accept_hdr(replay, |_: &tokio_tungstenite::tungstenite::handshake::server::Request, mut response: tokio_tungstenite::tungstenite::handshake::server::Response| {
+                            response.headers_mut().insert("sec-websocket-protocol", "wamp".parse().unwrap());
+                            Ok(response)
+                        }).unwrap();
+                        for _ in 0..4 {
+                            socket.read().unwrap();
+                        }
+                        for event in events {
+                            socket.send(Message::Text(event.into())).unwrap();
+                        }
+                    });
+                    continue;
+                }
+                let current = server_phase.lock().unwrap().clone();
+                let path = request.split_whitespace().nth(1).unwrap();
+                let (status, body) = match path {
+                    "/lol-gameflow/v1/gameflow-phase" => (200, format!("\"{current}\"")),
+                    "/lol-summoner/v1/current-summoner" => {
+                        (200, r#"{"puuid":"fixture-owner"}"#.to_owned())
+                    }
+                    "/lol-champ-select/v1/session" => {
+                        // The room is already gone while the phase still reads ChampSelect.
+                        if let Some(lagging) = lagging_tx.take() {
+                            let _ = lagging.send(());
+                        }
+                        (404, "{}".to_owned())
+                    }
+                    _ => (200, "{}".to_owned()),
+                };
+                respond(&mut stream, status, &body);
+            }
+        });
+        let service = fixture_service(port, "ChampSelect").await;
+        let stop = CancellationToken::new();
+        let (worker, worker_stop) = (service.clone(), stop.clone());
+        let connection = tokio::spawn(async move {
+            let mut established = false;
+            let result = worker
+                .connected(
+                    Arc::new(fixture_transport(port)),
+                    &worker_stop,
+                    &mut established,
+                )
+                .await;
+            (result, established)
+        });
+
+        lagging_rx.await.unwrap();
+        *phase.lock().unwrap() = "Matchmaking".into();
+        wait_for_snapshot(&service, |value| {
+            value.connection == "Connected" && value.phase == "Matchmaking"
+        })
+        .await;
+
+        *phase.lock().unwrap() = "ReadyCheck".into();
+        event_tx
+            .send(r#"[8,"OnJsonApiEvent_lol-gameflow_v1_gameflow-phase",{"eventType":"Update","data":"ReadyCheck"}]"#.into())
+            .unwrap();
+        wait_for_snapshot(&service, |value| {
+            value.connection == "Connected" && value.phase == "ReadyCheck"
+        })
+        .await;
+
+        assert!(!connection.is_finished());
+        stop.cancel();
+        let (result, established) = connection.await.unwrap();
+        assert!(result.is_ok());
+        assert!(established);
+    }
+
+    #[tokio::test]
+    async fn only_lost_or_rejected_clients_end_the_connection() {
+        let (listener, acceptor, port) = fixture_listener();
+        let server = std::thread::spawn(move || {
+            for status in [500, 401] {
+                let (mut stream, _) = accept_http(&listener, &acceptor);
+                respond(&mut stream, status, "{}");
+            }
+        });
+        let service = fixture_service(port, "Matchmaking").await;
+        let transport = fixture_transport(port);
+        assert!(!service.try_refresh(&transport).await.unwrap());
+        assert_eq!(service.snapshot().await.connection, "Connecting");
+        assert_eq!(
+            service.try_refresh(&transport).await.unwrap_err().code,
+            "Unauthorized"
+        );
+        server.join().unwrap();
+    }
+
+    #[tokio::test]
+    async fn failing_display_resources_do_not_hold_back_the_ready_check() {
+        let (listener, acceptor, port) = fixture_listener();
+        let server = std::thread::spawn(move || {
+            for (status, body) in [
+                (200, "\"ReadyCheck\""),
+                (200, r#"{"puuid":"fixture-owner"}"#),
+                (500, "{}"),
+                (500, "{}"),
+                (200, "\"ReadyCheck\""),
+                (200, r#"{"puuid":"fixture-owner"}"#),
+            ] {
+                let (mut stream, _) = accept_http(&listener, &acceptor);
+                respond(&mut stream, status, body);
+            }
+        });
+        let service = fixture_service(port, "Matchmaking").await;
+        service.refresh(&fixture_transport(port)).await.unwrap();
+        let snapshot = service.snapshot().await;
+        assert_eq!(snapshot.connection, "Connected");
+        assert_eq!(snapshot.phase, "ReadyCheck");
+        assert!(snapshot.lobby_members.is_null());
+        server.join().unwrap();
     }
 
     #[tokio::test]

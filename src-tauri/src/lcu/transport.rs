@@ -374,7 +374,7 @@ pub(super) mod tests {
         let server = thread::spawn(move || {
             let (_stream, request) = accept_http(&listener, &acceptor);
             assert!(request.starts_with("POST /lol-matchmaking/v1/ready-check/accept"));
-            thread::sleep(Duration::from_millis(150));
+            thread::sleep(Duration::from_millis(1500));
             listener.set_nonblocking(true).unwrap();
             assert!(
                 matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
@@ -386,7 +386,8 @@ pub(super) mod tests {
             .redirect(reqwest::redirect::Policy::none())
             .retry(reqwest::retry::never())
             .tls_danger_accept_invalid_certs(true)
-            .timeout(Duration::from_millis(50))
+            // Long enough for the TLS handshake to finish while the whole test suite is running.
+            .timeout(Duration::from_millis(1000))
             .build()
             .unwrap();
         let error = transport.ready(true).await.unwrap_err();

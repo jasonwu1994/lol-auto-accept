@@ -3,6 +3,7 @@ import store from '../redux/store';
 import i18n from '../i18n/i18n';
 import {gamePhaseToAppState} from '../redux/reducers/GameReducer';
 let previous = {};
+let connectedGeneration;
 function dispatchChanged(type,data) {
   const serialized=JSON.stringify(data);
   if(previous[type]===serialized)return;
@@ -23,9 +24,12 @@ export function applySnapshot(value) {
       i18n.changeLanguage(config.language);
       delete previous['change-appState'];
     }
-    dispatchChanged('change-connection',value.connection);
+    if(value.connection==='Connected')connectedGeneration=value.connectionGeneration;
+    // Every phase change re-reads the client as 'Connecting' on the same connection; that is not the client closing.
+    const rereading=value.connection==='Connecting' && value.connectionGeneration===connectedGeneration;
+    if(!rereading)dispatchChanged('change-connection',value.connection);
     dispatchChanged('change-gamePhase',value.phase);
-    dispatchChanged('change-appState',value.connection === 'Connected' ? gamePhaseToAppState(value.phase) : 'main.appStates.lolClosed');
+    if(!rereading)dispatchChanged('change-appState',value.connection === 'Connected' ? gamePhaseToAppState(value.phase) : 'main.appStates.lolClosed');
     dispatchChanged('change-displaySnapshot', {
       connection:value.connection, phase:value.phase,
       connectionGeneration:value.connectionGeneration, sessionKey:value.sessionKey,
