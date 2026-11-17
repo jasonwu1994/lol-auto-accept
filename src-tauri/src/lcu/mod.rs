@@ -122,6 +122,30 @@ impl ReadOperation {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ReadScope {
+    pub generation: u64,
+    pub account: String,
+}
+
+impl ReadScope {
+    pub fn token(&self) -> String {
+        format!("{}:{}", self.generation, self.account)
+    }
+    pub fn parse(value: &str) -> AppResult<Self> {
+        let (generation, account) = value
+            .split_once(':')
+            .ok_or_else(|| AppError::new("InvalidInput", "Invalid history scope"))?;
+        validate_identifier(account)?;
+        Ok(Self {
+            generation: generation
+                .parse()
+                .map_err(|_| AppError::new("InvalidInput", "Invalid history scope"))?,
+            account: account.into(),
+        })
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LcuSnapshot {
@@ -438,6 +462,71 @@ impl LcuService {
                 }
             },
         }
+    }
+
+    /// The connection/account scope for match-history reads. Unlike the session key,
+    /// it does not change when the gameflow phase changes, so reading history during
+    /// champion select or a game is not interrupted.
+    pub(crate) async fn read_scope(&self) -> Option<ReadScope> {
+        let state = self.state.lock().await;
+        state.transport.as_ref()?;
+        Some(ReadScope {
+            generation: state.snapshot.generation,
+            account: state.account.clone()?,
+        })
+    }
+
+    async fn scoped_transport(&self, scope: &ReadScope) -> AppResult<Arc<Transport>> {
+        let state = self.state.lock().await;
+        let transport = state
+            .transport
+            .clone()
+            .ok_or_else(|| AppError::new("Disconnected", "League client is not connected"))?;
+        if state.snapshot.generation != scope.generation
+            || state.account.as_deref() != Some(scope.account.as_str())
+        {
+            return Err(AppError::new(
+                "StaleSession",
+                "The client session has changed",
+            ));
+        }
+        Ok(transport)
+    }
+
+    pub(crate) async fn ensure_scope(&self, scope: &ReadScope) -> AppResult<()> {
+        self.scoped_transport(scope).await.map(|_| ())
+    }
+
+    /// GET a validated match-history path; the result is discarded if the scope changed meanwhile.
+    pub(crate) async fn scoped_get(&self, scope: &ReadScope, path: &str) -> AppResult<Value> {
+        let transport = self.scoped_transport(scope).await?;
+        let result = transport.get_path(path).await;
+        self.ensure_scope(scope).await?;
+        result
+    }
+
+    pub(crate) async fn scoped_post(
+        &self,
+        scope: &ReadScope,
+        path: &str,
+        body: Option<Value>,
+    ) -> AppResult<Value> {
+        let transport = self.scoped_transport(scope).await?;
+        let result = transport.post_path(path, body).await;
+        self.ensure_scope(scope).await?;
+        result
+    }
+
+    /// Asset bytes are not account data, so any live connection may serve them.
+    pub(crate) async fn asset_bytes(&self, path: &str) -> AppResult<(Vec<u8>, Option<String>)> {
+        let transport = self
+            .state
+            .lock()
+            .await
+            .transport
+            .clone()
+            .ok_or_else(|| AppError::new("Disconnected", "League client is not connected"))?;
+        transport.get_bytes(path).await
     }
 
     async fn checked_session(

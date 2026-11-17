@@ -1,8 +1,15 @@
-export const DEFAULT_NAV_ORDER = Object.freeze(['/main','/duo','/rank','/recentPlayers','/aram','/selectedRole','/about']);
+export const DEFAULT_NAV_ORDER = Object.freeze(['/main','/duo','/rank','/recentPlayers','/aram','/selectedRole','/match-history','/about']);
 
+// Mirrors the backend migration: keep the saved order of known routes, drop unknown
+// or repeated ones, put the match-history page (added in a later version) right
+// before About, and append any other missing route.
 export function normalizeNavOrder(saved) {
-  const known = Array.isArray(saved) ? saved.filter(path => DEFAULT_NAV_ORDER.includes(path)) : [];
-  return [...new Set([...known, ...DEFAULT_NAV_ORDER])];
+  const order = [...new Set(Array.isArray(saved) ? saved.filter(path => DEFAULT_NAV_ORDER.includes(path)) : [])];
+  if (!order.includes('/match-history')) {
+    const about = order.indexOf('/about');
+    if (about >= 0) order.splice(about, 0, '/match-history');
+  }
+  return [...new Set([...order, ...DEFAULT_NAV_ORDER])];
 }
 
 export function moveNavItem(order, source, target, placement = 'before') {

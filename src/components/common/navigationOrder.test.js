@@ -3,7 +3,11 @@ import {DEFAULT_NAV_ORDER,moveNavItem,navDragLayout,normalizeNavOrder} from './n
 
 it('retains saved routes once and appends missing routes when an older setting is loaded',()=>{
   expect(normalizeNavOrder(['/about','/duo','/about','/removed']))
-    .toEqual(['/about','/duo','/main','/rank','/recentPlayers','/aram','/selectedRole']);
+    .toEqual(['/match-history','/about','/duo','/main','/rank','/recentPlayers','/aram','/selectedRole']);
+  expect(normalizeNavOrder(['/duo','/main']))
+    .toEqual(['/duo','/main','/rank','/recentPlayers','/aram','/selectedRole','/match-history','/about']);
+  expect(normalizeNavOrder(['/main','/duo','/rank','/recentPlayers','/aram','/selectedRole','/about']))
+    .toEqual(DEFAULT_NAV_ORDER);
   expect(normalizeNavOrder(null)).toEqual(DEFAULT_NAV_ORDER);
 });
 it('slides only the crossed rows aside while the dragged row follows its pointer',()=>{

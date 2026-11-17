@@ -20,6 +20,7 @@ fn main() {
             "get_champions_balance",
             "get_versions",
             "get_latest_release",
+            "install_app_update",
             "respond_ready_check",
             "set_aram_preferences",
             "swap_bench_champion",

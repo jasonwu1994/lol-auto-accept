@@ -9,8 +9,10 @@ pub mod external;
 pub mod history;
 pub mod lcu;
 mod live;
+pub mod match_history;
 mod online_count;
 mod topmost;
+mod updater;
 use error::{AppError, AppResult};
 use serde_json::{Value, json};
 use std::sync::{
@@ -26,6 +28,7 @@ pub struct AppState {
     lcu: Arc<lcu::LcuService>,
     external: Arc<external::ExternalData>,
     champion_icons: champion_icons::ChampionIcons,
+    match_history: Arc<match_history::MatchHistoryService>,
     config_tx: watch::Sender<Value>,
     shutdown: CancellationToken,
     revision: AtomicU64,
@@ -65,10 +68,13 @@ impl AppState {
     }
 }
 pub fn run() {
+    // A freshly updated EXE removes the one it replaced before the single-instance check.
+    updater::finish_replacement();
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app,_,_|desktop::show(app)))
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![commands::get_online_count,commands::get_champion_icon,commands::get_player_matches,commands::get_live_players,commands::show_main_window,commands::bootstrap,commands::update_config,commands::get_gameflow_session,commands::get_gameflow_phase,commands::get_champ_select_session,commands::get_current_summoner,commands::get_lobby_members,commands::get_pickable_champion_ids,commands::get_summoners_by_id,commands::get_summoner_by_puuid,commands::get_ranked_stats,commands::get_current_summoner_matches,commands::get_history_game,commands::get_champions,commands::get_champions_balance,commands::get_versions,commands::get_latest_release,commands::respond_ready_check,commands::set_aram_preferences,commands::swap_bench_champion,commands::set_hovercard,commands::history_save_games,commands::history_list_games,commands::history_existing_game_ids,commands::history_trim,commands::set_always_on_top,commands::open_external,commands::write_clipboard,commands::terminate_league_processes])
+        .register_asynchronous_uri_scheme_protocol("lolasset",|context,request,responder|match_history::commands::serve_asset(context.app_handle(),context.webview_label(),request,responder))
+        .invoke_handler(tauri::generate_handler![commands::get_online_count,commands::get_champion_icon,commands::get_player_matches,commands::get_live_players,commands::show_main_window,commands::bootstrap,commands::update_config,commands::get_gameflow_session,commands::get_gameflow_phase,commands::get_champ_select_session,commands::get_current_summoner,commands::get_lobby_members,commands::get_pickable_champion_ids,commands::get_summoners_by_id,commands::get_summoner_by_puuid,commands::get_ranked_stats,commands::get_current_summoner_matches,commands::get_history_game,commands::get_champions,commands::get_champions_balance,commands::get_versions,commands::get_latest_release,commands::install_app_update,commands::respond_ready_check,commands::set_aram_preferences,commands::swap_bench_champion,commands::set_hovercard,commands::history_save_games,commands::history_list_games,commands::history_existing_game_ids,commands::history_trim,commands::set_always_on_top,commands::open_external,commands::write_clipboard,commands::terminate_league_processes,match_history::commands::get_match_history_context,match_history::commands::get_match_history_profile,match_history::commands::get_match_history_ranked,match_history::commands::get_match_history_mastery,match_history::commands::get_match_history_mastery_top,match_history::commands::get_match_history_page,match_history::commands::get_match_history_game,match_history::commands::get_match_history_timeline,match_history::commands::get_match_history_sgp_page,match_history::commands::get_match_history_sgp_details,match_history::commands::get_match_history_collection,match_history::commands::search_match_history_players,match_history::commands::get_match_history_game_data,match_history::commands::get_match_history_augment_text,match_history::commands::get_match_replay_state,match_history::commands::create_match_replay_metadata,match_history::commands::run_match_replay_action,match_history::commands::get_match_history_search_history,match_history::commands::update_match_history_search_history])
         .setup(|app|{
             let config_dir=app.path().app_config_dir()?;
             let legacy_data_dir=app.path().app_local_data_dir()?;
@@ -82,11 +88,12 @@ pub fn run() {
             let champion_icons=champion_icons::ChampionIcons::new(config_dir.join("cache/champions"))?;
             let lcu=lcu::LcuService::new()?;
             lcu.configure_data_sources(history.clone(),external.clone())?;
+            let match_history=Arc::new(match_history::MatchHistoryService::new(lcu.clone(),config_dir.join("cache/assets"),config_dir.join("match-history/preferences.json"))?);
             let (config_tx,config_rx)=watch::channel(serde_json::to_value(&initial)?);
             let shutdown=CancellationToken::new();
             let mut events=lcu.subscribe();
             let mut config_events=config_tx.subscribe();
-            app.manage(AppState{config:Mutex::new(config),history,lcu:lcu.clone(),external,champion_icons,config_tx,shutdown:shutdown.clone(),revision:AtomicU64::new(1),config_revision:AtomicU64::new(0),snapshot_gate:tokio::sync::Mutex::new(()),window_ready:AtomicBool::new(false),window_resize_revision:AtomicU64::new(0),topmost:Mutex::new(topmost::TopmostPolicy::default())});
+            app.manage(AppState{config:Mutex::new(config),history,lcu:lcu.clone(),external,champion_icons,match_history,config_tx,shutdown:shutdown.clone(),revision:AtomicU64::new(1),config_revision:AtomicU64::new(0),snapshot_gate:tokio::sync::Mutex::new(()),window_ready:AtomicBool::new(false),window_resize_revision:AtomicU64::new(0),topmost:Mutex::new(topmost::TopmostPolicy::default())});
             let analytics_handle = app.handle().clone();
             let analytics_shutdown = shutdown.clone();
             tauri::async_runtime::spawn(async move {

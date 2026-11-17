@@ -5,6 +5,7 @@
     "rank": "積分",
     "recentPlayers": "最近遇過",
     "aram": "隨機單中",
+    "matchHistory": "戰績",
     "selectedRole": "列隊規則",
     "about": "關於"
   },
@@ -138,7 +139,13 @@
     "currentVersion": "目前版本",
     "latestVersion": "最新版本",
     "help": "如果這個程式對您有幫助，請給個⭐️！\n<br/>\n這是對我最大的鼓勵！\n",
-    "github": "查看 GitHub 頁面"
+    "github": "查看 GitHub 頁面",
+    "updateNow": "立即更新",
+    "updateRetry": "重試更新",
+    "updateDownloading": "下載中 {{downloaded}} / {{total}} MB（{{percent}}%）",
+    "updateRestarting": "下載完成，正在重新啟動…",
+    "updateFailed": "更新失敗：{{reason}}",
+    "updateNoPermission": "無法寫入程式所在的資料夾，請到 GitHub 手動下載"
   },
   "common": {
     "close": "關閉",

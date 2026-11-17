@@ -1,6 +1,9 @@
 import {normalizeDesignTheme} from '../../styles/designThemes';
 import {DEFAULT_NAV_ORDER} from '../../components/common/navigationOrder';
 
+// Same defaults as the backend MatchHistoryConfig.
+export const DEFAULT_MATCH_HISTORY_CONFIG = Object.freeze({pageSize:20,preferSgp:true,defaultQueue:'all',defaultTimeRange:'all',showPractice:false,showIrregularGames:false,refreshAfterGame:true,keepSearchHistory:true});
+
 const ConfigReducer = (prevState = {
   isAutoAccept: true,
   isShowRecentTeammate: true,
@@ -21,7 +24,8 @@ const ConfigReducer = (prevState = {
   isAutoAramTopmost: false,
   windowSize: null,
   windowPosition: null,
-  navOrder: [...DEFAULT_NAV_ORDER]
+  navOrder: [...DEFAULT_NAV_ORDER],
+  matchHistory: {...DEFAULT_MATCH_HISTORY_CONFIG}
 }, action) => {
   let newState = {...prevState}
   switch (action.type) {
@@ -29,6 +33,7 @@ const ConfigReducer = (prevState = {
     case 'change-designTheme': return {...prevState,designTheme:normalizeDesignTheme(action.data)};
     case 'change-isAutoAramTopmost': return {...prevState,isAutoAramTopmost:action.data};
     case 'change-navOrder': return {...prevState,navOrder:action.data};
+    case 'change-matchHistory': return {...prevState,matchHistory:{...prevState.matchHistory,...action.data}};
     case 'change-isCheckHiddenPlayerHistory': return {...prevState,isCheckHiddenPlayerHistory:action.data};
     case 'change-hiddenPlayerHistoryGameCount': return {...prevState,hiddenPlayerHistoryGameCount:action.data};
     case 'change-alwaysOnTop': return {...prevState,alwaysOnTop:action.data};

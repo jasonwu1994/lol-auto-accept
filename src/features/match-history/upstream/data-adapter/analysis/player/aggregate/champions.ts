@@ -1,0 +1,34 @@
+import type { AggregatedChampionAnalysis } from '../types/aggregated'
+import type { PreparedGame } from '../types/helpers'
+import { computeAggregatedAkariScore } from './akari'
+import { computeAggregatedJungle } from './jungle'
+import { computeAggregatedPositions } from './positions'
+import { computeAggregatedSummary } from './summary'
+import { computeAggregatedWinLossMap } from './win-loss'
+
+export function computeAggregatedChampions(
+  games: PreparedGame[]
+): Record<number, AggregatedChampionAnalysis> {
+  const byChampion = new Map<number, PreparedGame[]>()
+  for (const g of games) {
+    const id = g.participant.championId
+    if (id === 0) continue
+    const list = byChampion.get(id)
+    if (list) list.push(g)
+    else byChampion.set(id, [g])
+  }
+
+  const out: Record<number, AggregatedChampionAnalysis> = {}
+  for (const [id, list] of byChampion) {
+    const summary = computeAggregatedSummary(list)
+    out[id] = {
+      championId: id,
+      summary,
+      winLoss: computeAggregatedWinLossMap(list),
+      akariScore: computeAggregatedAkariScore({ count: list.length, summary, games: list }),
+      positions: computeAggregatedPositions(list),
+      jungle: computeAggregatedJungle(list)
+    }
+  }
+  return out
+}

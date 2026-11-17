@@ -2,6 +2,7 @@ import {trackOperation} from '../analytics/client';
 import store from '../redux/store';
 import i18n from '../i18n/i18n';
 import {gamePhaseToAppState} from '../redux/reducers/GameReducer';
+import {lifecycle as matchHistoryLifecycle} from '../features/match-history/state/lifecycle';
 let previous = {};
 let connectedGeneration;
 function dispatchChanged(type,data) {
@@ -37,4 +38,5 @@ export function applySnapshot(value) {
       aramPreferences:value.aramPreferences,
     });
     dispatchChanged('change-lobby-members',value.lobbyMembers?.players ?? {});
+    matchHistoryLifecycle.observe(value);
 }

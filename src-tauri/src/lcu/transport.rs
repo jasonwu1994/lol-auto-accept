@@ -92,6 +92,56 @@ impl Transport {
         self.request(Method::GET, &operation.path()?, None).await
     }
 
+    /// Match-history reads. Callers build `path` only from validated, named operations.
+    pub async fn get_path(&self, path: &str) -> AppResult<Value> {
+        self.request(Method::GET, path, None).await
+    }
+
+    /// Match-history POSTs that the client documents as lookups or user-requested replay actions.
+    pub async fn post_path(&self, path: &str, body: Option<Value>) -> AppResult<Value> {
+        self.request(Method::POST, path, body).await
+    }
+
+    /// Binary game-data assets (icons). Bounded to 4 MiB.
+    pub async fn get_bytes(&self, path: &str) -> AppResult<(Vec<u8>, Option<String>)> {
+        const MAX: usize = 4 * 1024 * 1024;
+        let url = format!("https://127.0.0.1:{}{}", self.credentials.port, path);
+        let request = self
+            .http
+            .get(url)
+            .basic_auth("riot", Some(&self.credentials.password));
+        tokio::select! {
+            biased;
+            _ = self.cancel.cancelled() => Err(AppError::new("StaleSession", "The client session has ended")),
+            result = async {
+                let mut response = request.send().await.map_err(|e| {
+                    if e.is_timeout() { AppError::new("Timeout", "Local request timed out") }
+                    else { AppError::new("Disconnected", "Local client request failed") }
+                })?;
+                match response.status().as_u16() {
+                    200..=299 => {},
+                    404 => return Err(AppError::new("NotFound", "Local client asset is unavailable")),
+                    401 | 403 => return Err(AppError::new("Unauthorized", "Local client authentication failed")),
+                    _ => return Err(AppError::new("Io", "Local client rejected the asset request")),
+                }
+                let content_type = response
+                    .headers()
+                    .get(reqwest::header::CONTENT_TYPE)
+                    .and_then(|value| value.to_str().ok())
+                    .map(str::to_owned);
+                if response.content_length().is_some_and(|n| n > MAX as u64) {
+                    return Err(AppError::new("InvalidInput", "Local asset is too large"));
+                }
+                let mut bytes = Vec::new();
+                while let Some(chunk) = response.chunk().await.map_err(|_| AppError::new("Io", "Could not read local asset"))? {
+                    if bytes.len() + chunk.len() > MAX { return Err(AppError::new("InvalidInput", "Local asset is too large")); }
+                    bytes.extend_from_slice(&chunk);
+                }
+                Ok((bytes, content_type))
+            } => result,
+        }
+    }
+
     pub async fn ready(&self, accept: bool) -> AppResult<Value> {
         self.request(
             Method::POST,

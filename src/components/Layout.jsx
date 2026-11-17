@@ -10,7 +10,7 @@ import React, {useEffect, useRef, useState} from 'react';
 import {
   AimOutlined, HistoryOutlined, HomeOutlined, InfoCircleOutlined,
   HolderOutlined, SortAscendingOutlined,
-  TeamOutlined, TrophyOutlined, UnorderedListOutlined
+  TeamOutlined, TrophyOutlined, UnorderedListOutlined, ProfileOutlined
 } from '@ant-design/icons';
 import {useTranslation} from 'react-i18next';
 import {useDispatch, useSelector, useStore} from 'react-redux';
@@ -30,6 +30,7 @@ const navItems = [
   {path: '/recentPlayers', labelKey: 'menu.recentPlayers', icon: <HistoryOutlined/>},
   {path: '/aram', labelKey: 'menu.aram', icon: <AimOutlined/>},
   {path: '/selectedRole', labelKey: 'menu.selectedRole', icon: <UnorderedListOutlined/>},
+  {path: '/match-history', labelKey: 'menu.matchHistory', icon: <ProfileOutlined/>},
   {path: '/about', labelKey: 'menu.about', icon: <InfoCircleOutlined/>},
 ];
 

@@ -12,9 +12,10 @@ vi.mock('./RecentPlayers', () => ({default: () => {rendered.push('recentPlayers'
 vi.mock('./ARAM', () => ({default: () => {rendered.push('aram'); return 'aram';}}));
 vi.mock('./SelectedRole', () => ({default: () => {rendered.push('selectedRole'); return 'selectedRole';}}));
 vi.mock('./About', () => ({default: () => {rendered.push('about'); return 'about';}}));
+vi.mock('../features/match-history/MatchHistoryPage', () => ({default: () => {rendered.push('match-history'); return 'match-history';}}));
 
 describe('visible page lifecycle', () => {
-  it.each(['main', 'duo', 'rank', 'recentPlayers', 'aram', 'selectedRole', 'about'])('renders only the %s route', path => {
+  it.each(['main', 'duo', 'rank', 'recentPlayers', 'aram', 'selectedRole', 'match-history', 'about'])('renders only the %s route', path => {
     rendered.length = 0;
     renderToStaticMarkup(<MemoryRouter initialEntries={[`/${path}`]}><VisibleSwitch/></MemoryRouter>);
     expect(rendered).toEqual([path]);

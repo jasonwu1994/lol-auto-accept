@@ -24,6 +24,8 @@ export const desktop = {
     if (result.error) reportError(result.error);
     else if (result.status === 'failed' || result.status === 'uncertain') reportError({message:result.message || result.status});
   }),
+  /** Download progress of `install_app_update`, in bytes. */
+  listenUpdateProgress: (handler:(progress:{downloaded:number;total:number})=>void) => listen<{downloaded:number;total:number}>('app-update-progress',event=>handler(event.payload)),
   session: () => ({connectionGeneration: snapshot?.connectionGeneration ?? 0, sessionKey: snapshot?.sessionKey ?? ''}),
   snapshot: () => snapshot,
   refresh: async () => publishSnapshot(await invoke<AppSnapshot>('bootstrap')),

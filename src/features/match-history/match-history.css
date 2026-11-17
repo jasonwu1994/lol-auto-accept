@@ -1,0 +1,473 @@
+/*
+ * Match history page styles. Everything is scoped to `.match-history-root` (and its
+ * portals) so the page carries Akari's palette without touching other pages.
+ * Colour values follow upstream theme-system.css / match-card.css (dark: #141416 base).
+ */
+
+/* This file can reach the bundle before Tailwind's CSS, and its `@layer base` block
+   below would then make `base` the first layer. Restate Tailwind's order so HeroUI's
+   default tokens (`theme`) stay under the colour presets (`base`, theme-presets.css). */
+@layer properties, theme, base, components, utilities;
+
+.match-history-root,
+.match-history-portal {
+  /* The app's page background, so the page sits like 主頁 and 隨機單中. */
+  --mh-bg: var(--background);
+  --mh-text: rgba(0, 0, 0, 0.86);
+  --mh-text-muted: rgba(0, 0, 0, 0.6);
+  --mh-accent: rgb(88, 124, 102);
+  --mh-surface: rgba(247, 248, 250, 0.95);
+  --mh-popover-bg: #fafafa;
+  --mh-popover-border: rgba(0, 0, 0, 0.2);
+  --mh-scrollbar: #c0c0c0;
+  --mh-scrollbar-hover: #a0a0a0;
+  --mh-control-bg: rgba(0, 0, 0, 0.06);
+  --mh-control-hover: rgba(0, 0, 0, 0.1);
+  --mh-win: rgba(96, 165, 250, 0.35);
+  --mh-loss: rgba(239, 68, 68, 0.3);
+  --mh-remake: rgba(168, 168, 168, 0.24);
+  --mh-damage-bg: #e5e5e5;
+  color: var(--mh-text);
+}
+
+:root[data-theme='dark'] .match-history-root,
+:root[data-theme='dark'] .match-history-portal {
+  --mh-bg: var(--background);
+  --mh-text: rgba(255, 255, 255, 0.86);
+  --mh-text-muted: rgba(255, 255, 255, 0.6);
+  --mh-accent: rgb(144, 198, 166);
+  --mh-surface: rgba(20, 20, 22, 0.95);
+  --mh-popover-bg: #202024fa;
+  --mh-popover-border: rgba(255, 255, 255, 0.2);
+  --mh-scrollbar: #4c4c4c;
+  --mh-scrollbar-hover: #626262;
+  --mh-control-bg: rgba(255, 255, 255, 0.08);
+  --mh-control-hover: rgba(255, 255, 255, 0.14);
+  /* Upstream dark `.shadow-*` card overlays. */
+  --mh-win: rgba(37, 99, 235, 0.16);
+  --mh-loss: rgba(190, 18, 60, 0.16);
+  --mh-remake: rgba(148, 163, 184, 0.12);
+  --mh-damage-bg: #3a3a3a;
+}
+
+.match-history-root {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--mh-bg);
+  font-variant-numeric: normal;
+}
+
+/* In Tailwind's base layer so utilities (text-xs…) and HeroUI component classes win. */
+@layer base {
+  .match-history-root button {
+    font: inherit;
+    color: inherit;
+  }
+}
+
+.match-history-root :focus-visible,
+.match-history-portal :focus-visible {
+  outline: 2px solid var(--mh-accent);
+  outline-offset: 1px;
+}
+
+/* ------------------------------------------------------------ card overlays */
+
+.mh-shadow-win { background-color: var(--mh-win); }
+.mh-shadow-loss { background-color: var(--mh-loss); }
+.mh-shadow-remake { background-color: var(--mh-remake); }
+
+.mh-card { content-visibility: auto; }
+
+.mh-name-toggle {
+  display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 6px; border: 0;
+  border-radius: 10px; background: var(--mh-control-bg); color: inherit; font: inherit; font-size: 11px;
+  cursor: pointer; opacity: 0.75; transition: opacity 120ms ease, background-color 120ms ease;
+}
+.mh-name-toggle:hover, .mh-name-toggle.active { opacity: 1; background: var(--mh-control-hover); }
+
+.mh-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 220ms ease, opacity 220ms ease;
+}
+.mh-collapse.open { grid-template-rows: 1fr; opacity: 1; }
+.mh-collapse-inner { min-height: 0; overflow: hidden; }
+@media (prefers-reduced-motion: reduce) {
+  .mh-collapse { transition: none; }
+}
+
+.mh-player-list {
+  /* Upstream grows into extra card width up to 280px; here it keeps growing so
+     longer names fit when the window is widened. */
+  width: clamp(168px, calc(100cqw - 584px), 480px);
+  flex-shrink: 0;
+}
+
+/* Upstream cards keep a ~700px minimum; this app's window is 640px wide at minimum,
+   so narrow cards drop the team list instead of cropping the right edge. */
+@container (max-width: 560px) {
+  .mh-player-list { display: none; }
+}
+
+.mh-tag {
+  position: relative;
+  flex-shrink: 0;
+  border-radius: 0.75rem;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.mh-empty-slot {
+  border-radius: 2px;
+  background-color: rgb(107 114 128 / 0.4);
+}
+:root[data-theme='dark'] .mh-empty-slot { background-color: rgb(0 0 0 / 0.2); }
+
+.mh-img-placeholder {
+  border-radius: 2px;
+  background-color: rgba(0, 0, 0, 0.1);
+}
+:root[data-theme='dark'] .mh-img-placeholder { background-color: rgba(255, 255, 255, 0.1); }
+
+.mh-perkstyle { background: rgba(0, 0, 0, 0.35); }
+
+/* Augment rarity frames (upstream AugmentDisplay). */
+.mh-augment { border-radius: 2px; box-sizing: border-box; }
+.mh-augment.prismatic { border: 1px solid transparent; border-image: linear-gradient(135deg, #e78fff, #8b05b0) 1; background-color: rgb(72, 59, 104); }
+.mh-augment.gold { border: 1px solid rgb(255, 183, 0); background-color: hsl(43, 82%, 20%); }
+.mh-augment.silver { border: 1px solid rgb(180, 180, 180); background-color: rgb(65, 77, 88); }
+.mh-augment.bronze { border: 1px solid rgb(205, 127, 50); background-color: rgb(80, 50, 25); }
+:root[data-theme='dark'] .mh-augment.prismatic { background-color: rgb(45, 37, 66); }
+:root[data-theme='dark'] .mh-augment.gold { background-color: rgb(50, 37, 5); }
+:root[data-theme='dark'] .mh-augment.silver { background-color: rgb(35, 35, 34); }
+:root[data-theme='dark'] .mh-augment.bronze { background-color: rgb(50, 30, 15); }
+:root[data-theme='light'] .mh-augment-info img { filter: invert(100%); }
+
+.mh-rarity-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: -1px; }
+.mh-rarity-dot.prismatic { background: linear-gradient(135deg, #e78fff, #8b05b0); }
+.mh-rarity-dot.gold { background: rgb(255, 183, 0); }
+.mh-rarity-dot.silver { background: rgb(180, 180, 180); }
+.mh-rarity-dot.bronze { background: rgb(205, 127, 50); }
+
+.mh-item-from::before,
+.mh-item-to::before {
+  margin-right: 0.25rem;
+  font-size: 0.75rem;
+  font-style: italic;
+  color: var(--mh-text-muted);
+}
+.mh-item-from::before { content: '='; }
+.mh-item-to::before { content: '⇒'; }
+
+/* Damage bars (upstream DamageBar). */
+.mh-damage-bar { overflow: hidden; }
+.mh-damage-bar .bg { fill: var(--mh-damage-bg); }
+.mh-damage-bar .physical-damage { fill: #e07856; }
+.mh-damage-bar .magic-damage { fill: #5b9fd7; }
+.mh-damage-bar .true-damage { fill: #a8a8a8; }
+
+/* Riot description markup → classes (no injected HTML). */
+.mh-riot-stats, .mh-riot-mainstats { color: inherit; }
+.mh-riot-attention, .mh-riot-keywordmajor, .mh-riot-spellname { font-weight: 600; color: #e2b36a; }
+.mh-riot-passive, .mh-riot-active, .mh-riot-unique { font-weight: 600; }
+.mh-riot-magicdamage, .mh-riot-scaleap { color: #6fb0e6; }
+.mh-riot-physicaldamage, .mh-riot-scalead { color: #f08a6a; }
+.mh-riot-truedamage { color: #ffffff; }
+.mh-riot-healing, .mh-riot-scalehealth, .mh-riot-lifesteal { color: #5fcf7a; }
+.mh-riot-shield { color: #8fb2c7; }
+.mh-riot-status, .mh-riot-keyword { color: #c79ce6; }
+.mh-riot-speed { color: #d6d185; }
+.mh-riot-gold { color: #e0b44c; }
+.mh-riot-rules, .mh-riot-flavortext { font-style: italic; opacity: 0.75; }
+.mh-riot-raritylegendary, .mh-riot-raritymythic { color: #e7a64a; }
+.mh-riot-li { display: block; }
+:root[data-theme='light'] .mh-riot-truedamage { color: #6b6b6b; }
+
+/* ------------------------------------------------------------ tabs */
+
+.mh-tab-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.mh-tab-list {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: stretch;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.mh-tab-list::-webkit-scrollbar { display: none; }
+
+/* The app's HeroUI secondary tabs (隨機單中): flat, muted text, accent underline. */
+.mh-tab {
+  position: relative;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  min-width: 80px;
+  max-width: 240px;
+  padding: 0 8px 0 14px;
+  box-sizing: border-box;
+  cursor: pointer;
+  user-select: none;
+  touch-action: pan-y;
+  line-height: 1;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+  transition: color 150ms, opacity 150ms;
+}
+@media (hover: hover) {
+  .mh-tab:not(.active):hover { opacity: 0.7; }
+}
+.mh-tab.active { color: var(--foreground); }
+.mh-tab.active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--accent);
+}
+.mh-tab.drag-source { z-index: 1; cursor: grabbing; opacity: 0.78; }
+.mh-tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+
+.mh-tab-icon { display: inline-flex; flex-shrink: 0; margin-right: 6px; width: 18px; height: 18px; border-radius: 50%; }
+.mh-tab-icon-placeholder { background-color: var(--default); }
+.mh-tab-self { flex-shrink: 0; margin-right: 4px; font-size: 12px; font-weight: 700; color: var(--accent-soft-foreground); }
+.mh-tab-name { display: flex; align-items: baseline; min-width: 0; white-space: nowrap; overflow: hidden; }
+.mh-tab-game-name { overflow: hidden; text-overflow: ellipsis; margin-right: 3px; }
+.mh-tab-tag { font-size: 12px; opacity: 0.7; }
+.mh-tab-placeholder { white-space: nowrap; }
+.mh-tab-close {
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 18px; height: 18px; margin-left: 6px; padding: 0; border: 0; border-radius: 50%;
+  background: transparent; font-size: 10px; line-height: 0; cursor: pointer; opacity: 0.7;
+  transition: background-color 150ms, opacity 150ms;
+}
+.mh-tab-close:hover { background-color: var(--default-hover); opacity: 1; }
+.mh-tab-tools { display: flex; align-items: center; gap: 2px; height: 32px; }
+
+/* ------------------------------------------------------------ controls */
+/* Shapes and colours follow the app's HeroUI controls (主頁): pill buttons, 12px
+   fields with a 1px border, 12px surface panels. */
+
+.mh-panel {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.mh-pagination.floating { background: var(--overlay); box-shadow: var(--overlay-shadow); }
+
+.mh-button,
+.mh-round-button,
+.mh-icon-button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  border: 0; border-radius: 9999px; cursor: pointer; font-weight: 500;
+  background: var(--default); color: var(--foreground) !important;
+  transition: background-color 100ms, opacity 150ms, transform 250ms;
+}
+.mh-button { min-height: 28px; padding-inline: 12px !important; font-weight: 500; }
+.mh-button.mh-icon-only { padding: 0 !important; }
+.mh-button:hover:not(:disabled),
+.mh-round-button:hover:not(:disabled),
+.mh-icon-button:hover:not(:disabled),
+.mh-icon-button.active { background: var(--default-hover); opacity: 1; }
+.mh-button:active:not(:disabled) { transform: scale(0.98); }
+.mh-button.primary,
+.mh-round-button.primary { background: var(--accent); color: var(--accent-foreground) !important; }
+.mh-button.primary:hover:not(:disabled) { background: var(--accent-hover); }
+.mh-button.active { background: var(--accent-soft); color: var(--accent-soft-foreground) !important; }
+.mh-button:disabled,
+.mh-round-button:disabled,
+.mh-icon-button:disabled { opacity: 0.5; cursor: not-allowed; }
+.mh-round-button { width: 28px; height: 28px; background: transparent; }
+.mh-icon-button { width: 28px; height: 28px; background: transparent; font-size: 14px; color: var(--muted) !important; }
+.mh-icon-button:hover:not(:disabled), .mh-icon-button.active { color: var(--foreground) !important; }
+
+.mh-input,
+.mh-select {
+  box-sizing: border-box; min-height: 32px; padding: 4px 10px; border-radius: 12px;
+  border: 1px solid var(--border-strong); background: var(--field-background); color: var(--field-foreground);
+  font: inherit; font-size: 13px; transition: border-color 150ms, background-color 150ms;
+}
+.mh-input::placeholder { color: var(--field-placeholder); }
+.mh-input:hover, .mh-select:hover { border-color: var(--accent-border); }
+.mh-input:focus, .mh-select:focus { outline: none; border-color: var(--focus); }
+.mh-select option { color: #111; }
+
+/* HeroSelect: section headers inside the app's select popover. */
+/* Above the page's own modals and drawers (z-index 900+). */
+.mh-select-popover { z-index: 1100 !important; }
+.mh-select-popover .mh-select-group { padding: 8px 8px 4px; font-size: 12px; color: var(--muted); }
+
+.mh-chip {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 9999px;
+  border: 1px solid transparent; background: var(--default); font-size: 12px; cursor: pointer;
+}
+.mh-chip.active { background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent-soft-foreground) !important; }
+
+.mh-list-item {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 10px; border: 0; border-radius: 12px;
+  background: var(--default); text-align: left; cursor: pointer;
+}
+.mh-list-item:hover { background: var(--default-hover); }
+
+.mh-checkbox { accent-color: var(--accent); }
+
+.mh-spinner {
+  display: inline-block; flex-shrink: 0; box-sizing: border-box; border-radius: 9999px;
+  border: 2px solid currentColor; border-right-color: transparent; opacity: 0.7;
+  animation: mh-spin 0.8s linear infinite;
+}
+@keyframes mh-spin { to { transform: rotate(360deg); } }
+
+.mh-skeleton { border-radius: 4px; background: var(--mh-control-bg); }
+
+/* ------------------------------------------------------------ overlays */
+
+.mh-tip {
+  position: fixed; z-index: 1000; max-width: min(480px, calc(100vw - 16px)); padding: 8px 10px;
+  border-radius: 4px; border: 1px solid var(--mh-popover-border); background: var(--mh-popover-bg);
+  color: var(--mh-text); box-shadow: 0 6px 24px rgba(0, 0, 0, 0.28); font-size: 12px; line-height: 1.45;
+}
+
+/* Stat charts size themselves to the window (League client proportions). */
+/* All of a player's augments at once. */
+.mh-tip.mh-augment-group-tip { padding: 12px 14px; border-radius: 8px; }
+/* Match details stats table. Values are dimmed so each row's highest (bold, in a chip)
+   stands out, the owner's column keeps its gold, and the pointer's row and column light up. */
+.mh-stats-table { --mh-stat-column-hover: rgb(0 0 0 / 0.05); }
+:root[data-theme='dark'] .mh-stats-table { --mh-stat-column-hover: rgb(255 255 255 / 0.05); }
+.mh-stats-table .mh-stat-cell { color: rgb(0 0 0 / 0.55); }
+:root[data-theme='dark'] .mh-stats-table .mh-stat-cell { color: rgb(255 255 255 / 0.5); }
+.mh-stats-table .mh-stat-row:hover > td { background-color: rgb(0 0 0 / 0.06); }
+:root[data-theme='dark'] .mh-stats-table .mh-stat-row:hover > td { background-color: rgb(255 255 255 / 0.07); }
+/* The sticky name cell must stay opaque while the values scroll under it. */
+.mh-stats-table .mh-stat-row:hover > td:first-child { background-color: #d6d6d6; }
+:root[data-theme='dark'] .mh-stats-table .mh-stat-row:hover > td:first-child { background-color: #2a2a2c; }
+.mh-stats-table .mh-stat-row:hover > .mh-stat-cell { color: rgb(0 0 0 / 0.85); }
+:root[data-theme='dark'] .mh-stats-table .mh-stat-row:hover > .mh-stat-cell { color: rgb(255 255 255 / 0.85); }
+.mh-stats-table .mh-stat-cell.mh-stat-max { color: #000; font-weight: 700; }
+:root[data-theme='dark'] .mh-stats-table .mh-stat-cell.mh-stat-max { color: #fff; }
+.mh-stat-best {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 4px;
+  background-color: color-mix(in srgb, currentColor 14%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 32%, transparent);
+}
+.mh-tip.mh-chart-tip { max-width: calc(100vw - 8px); max-height: calc(100vh - 8px); overflow: hidden; padding: 10px 12px; }
+
+.mh-menu {
+  position: fixed; z-index: 1001; min-width: 160px; padding: 4px; border-radius: 16px;
+  background: var(--overlay); color: var(--overlay-foreground); box-shadow: var(--overlay-shadow);
+}
+.mh-menu-item {
+  display: flex; align-items: center; gap: 8px; width: 100%; height: 32px; padding: 0 10px;
+  border: 0; border-radius: 12px; background: transparent; font-size: 13px; text-align: left; cursor: pointer;
+}
+.mh-menu-item:hover:not(:disabled), .mh-menu-item:focus-visible { background: var(--default); }
+.mh-menu-item:disabled { opacity: 0.45; cursor: not-allowed; }
+.mh-menu-icon { display: inline-flex; width: 14px; justify-content: center; }
+.mh-menu-divider { height: 1px; margin: 4px 0; background: var(--mh-popover-border); }
+
+.mh-modal-backdrop,
+.mh-drawer-backdrop {
+  position: fixed; inset: 0; z-index: 900; display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+}
+.mh-modal { max-width: calc(100vw - 24px); max-height: calc(100vh - 24px); outline: none; color: var(--mh-text); }
+.mh-drawer-backdrop { position: absolute; justify-content: flex-start; align-items: stretch; background: rgba(0, 0, 0, 0.35); }
+.mh-drawer {
+  width: min(320px, calc(100% - 32px)); height: 100%; overflow-x: hidden; overflow-y: auto; padding: 8px; box-sizing: border-box;
+  background: var(--mh-surface); backdrop-filter: blur(16px);
+}
+.mh-drawer-backdrop.open { animation: mh-fade-in 200ms ease both; }
+.mh-drawer-backdrop.open .mh-drawer { animation: mh-slide-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.mh-drawer-backdrop.closing { animation: mh-fade-out 200ms ease both; pointer-events: none; }
+.mh-drawer-backdrop.closing .mh-drawer { animation: mh-slide-out 200ms ease-in both; }
+@keyframes mh-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes mh-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes mh-slide-in { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+@keyframes mh-slide-out { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+@media (prefers-reduced-motion: reduce) {
+  .mh-drawer-backdrop.open, .mh-drawer-backdrop.open .mh-drawer,
+  .mh-drawer-backdrop.closing, .mh-drawer-backdrop.closing .mh-drawer { animation: none; }
+}
+
+.mh-search-panel {
+  position: absolute; top: 8px; right: 12px; z-index: 30; width: min(480px, calc(100% - 24px));
+  padding: 12px; border-radius: 6px; border: 1px solid var(--mh-popover-border); background: var(--mh-popover-bg);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3);
+}
+
+.mh-startup {
+  display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  padding: 24px 16px; text-align: center;
+}
+
+/* HeroTabs: the app's page tabs (theme.css `.page-tabs`); `sm` is the compact form
+   for sidebar panes. */
+.mh-hero-tabs { gap: 0; }
+.mh-hero-tabs [role="tab"] { white-space: nowrap; }
+/* No focus box on these tabs: the page-wide :focus-visible outline above and HeroUI's
+   focus ring (`data-focus-visible`) both boxed the selected tab while switching. The
+   underline already marks the selected tab. */
+.mh-hero-tabs [role="tab"]:is(:focus-visible, [data-focus-visible="true"]) { outline: none !important; box-shadow: none !important; }
+.mh-hero-tabs.mh-hero-tabs-sm [role="tab"] { height: 26px; min-width: 0; padding-inline: 8px; font-size: 12px; }
+
+/* Back-to-top: the app's HeroUI primary icon button, 20% larger than the 28px
+   round button it replaces, fading in when the pagination bar sticks. */
+.mh-back-top.button {
+  width: 34px; height: 34px; min-width: 34px; font-size: 17px;
+  box-shadow: var(--overlay-shadow);
+  animation: mh-back-top-in 200ms var(--ease-out, ease-out);
+}
+@keyframes mh-back-top-in { from { opacity: 0; transform: translateY(8px); } }
+
+/* Ranked dialog (upstream RankedPane modal + RankedTable), in the app's overlay look. */
+.mh-ranked-modal { border-radius: 16px; background: var(--overlay); box-shadow: var(--overlay-shadow); }
+.mh-ranked-table thead { background: var(--default); }
+.mh-ranked-table .mh-ranked-cell { padding: 6px 10px; text-align: center; white-space: nowrap; border-left: 1px solid var(--border); color: var(--foreground); }
+.mh-ranked-table .mh-ranked-cell:first-child { border-left: 0; }
+.mh-ranked-table th.mh-ranked-cell { font-weight: 500; color: var(--muted); }
+.mh-ranked-table tbody tr { border-top: 1px solid var(--border); transition: background-color 150ms; }
+.mh-ranked-table tbody tr:hover { background: var(--default); }
+.mh-ranked-table .mh-ranked-queue { font-weight: 500; }
+.mh-ranked-table .mh-ranked-empty { color: var(--muted); opacity: 0.6; }
+
+/* Events timeline (upstream NTimeline). */
+.mh-timeline { list-style: none; margin: 0; padding-left: 16px; }
+.mh-timeline-item { position: relative; padding: 0 0 14px 16px; border-left: 2px solid var(--mh-control-bg); }
+.mh-timeline-item::before {
+  content: ''; position: absolute; left: -6px; top: 3px; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--mh-bg); border: 2px solid var(--mh-text-muted);
+}
+.mh-timeline-item.success::before { border-color: #18a058; }
+.mh-timeline-item.warning::before { border-color: #f0a020; }
+
+/* ------------------------------------------------------------ scrollbars */
+
+.mh-scroll, .mh-scroll-x { scrollbar-width: thin; scrollbar-color: var(--mh-scrollbar) transparent; }
+.mh-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.mh-scroll-x::-webkit-scrollbar { height: 4px; }
+.mh-scroll::-webkit-scrollbar-thumb, .mh-scroll-x::-webkit-scrollbar-thumb { border-radius: 999px; background: var(--mh-scrollbar); }
+.mh-scroll::-webkit-scrollbar-thumb:hover { background: var(--mh-scrollbar-hover); }

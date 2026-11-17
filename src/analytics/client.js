@@ -2,11 +2,11 @@ import version from '../../package.json';
 export const MEASUREMENT_ID = 'G-JDEJZFZKCV';
 export const HEARTBEAT_MS = 120000;
 const idKey = 'analytics-install-v1';
-const screens = ['main','duo','rank','recentPlayers','aram','selectedRole','about'];
+const screens = ['main','duo','rank','recentPlayers','aram','selectedRole','match-history','about'];
 const events = new Set(['app_open','session_summary','heartbeat','screen_view','screen_engagement','setting_changed','appearance_changed','language_changed','action_requested','action_completed','automation_completed','lookup_completed','search_used','sort_changed','tab_changed','update_prompt_viewed','update_link_opened','external_link_opened','operation_failed']);
 const tokens = new Set([...screens,'default','sky','lavender','mint','netflix','uber','spotify','coinbase','airbnb','discord','rabbit','RANKED_SOLO_5x5','RANKED_FLEX_SR','RANKED_BOTH','Iron','Bronze','Silver','Gold','Platinum','Emerald','Diamond','Master','Grandmaster','Challenger','unknown','foreground','background','success','partial','failed','uncertain','manual','automatic','accept','decline','terminate','bench_swap','clipboard','preferences','always_on_top','hovercard','ranked','recent','hidden_player_history','team_recovery','champions','balance','live_players','profile','release','github','deeplol','pick','solo','flex','ascending','descending','none','light','dark','system','zh','en','enabled','disabled','changed','session_changed','unavailable','timeout','invalid_input','other','under_1s','1s_to_3s','3s_to_10s','over_10s']);
 const numeric = new Set(['duration_ms','engagement_time_msec','requested_count','completed_count','result_count','column_index','selected_count']);
-export const settingKeys = ['isAutoAccept','isShowRecentTeammate','recentTeammateCheckGameCount','isCheckHiddenPlayerHistory','hiddenPlayerHistoryGameCount','isShowTeammateRanked','showTeammateRankedType','isHovercard','hovercardTierType','hovercardRankedType','language','isDarkMode','appearanceMode','designTheme','alwaysOnTop','isAutoAramTopmost','navOrder'];
+export const settingKeys = ['isAutoAccept','isShowRecentTeammate','recentTeammateCheckGameCount','isCheckHiddenPlayerHistory','hiddenPlayerHistoryGameCount','isShowTeammateRanked','showTeammateRankedType','isHovercard','hovercardTierType','hovercardRankedType','language','isDarkMode','appearanceMode','designTheme','alwaysOnTop','isAutoAramTopmost','navOrder','matchHistory'];
 export function sanitizeEvent(name, input = {}) {
   if (!events.has(name)) return null;
   const out = {};

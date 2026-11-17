@@ -58,6 +58,9 @@ English | [中文](./README.md)
 - On first launch, history from the previous location is automatically copied to the new location. The original file is preserved as a backup.
 - Close the old application first. On first launch, settings are read from `app-config.json` in the configuration or executable directory, including the old `resources/app/app-config.json` location. Missing values use defaults and the old file is left unchanged. Match history is fetched from the game client on demand; no import is required.
 
+## 🙏 Credits
+- The match history page is based on and ported from [LeagueAkari](https://github.com/LeagueAkari/LeagueAkari) (MIT License). Thanks to its authors.
+
 ## 🎉 Conclusion
 **If you find this program helpful, please give it a ⭐️！**  
 **Your support is the greatest encouragement for me！**

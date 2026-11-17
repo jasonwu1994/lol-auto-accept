@@ -50,6 +50,59 @@ pub struct AppConfig {
     pub window_size: Option<WindowSize>,
     pub window_position: Option<WindowPosition>,
     pub nav_order: Vec<String>,
+    pub match_history: MatchHistoryConfig,
+}
+
+pub const NAV_ROUTES: [&str; 8] = [
+    "/main",
+    "/duo",
+    "/rank",
+    "/recentPlayers",
+    "/aram",
+    "/selectedRole",
+    "/match-history",
+    "/about",
+];
+
+/// Match-history page preferences (upstream `frontendSettings` subset). Player tabs
+/// and query results are deliberately not stored here.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct MatchHistoryConfig {
+    pub page_size: u32,
+    pub prefer_sgp: bool,
+    pub default_queue: String,
+    pub default_time_range: String,
+    pub show_practice: bool,
+    pub show_irregular_games: bool,
+    pub refresh_after_game: bool,
+    pub keep_search_history: bool,
+}
+
+impl Default for MatchHistoryConfig {
+    fn default() -> Self {
+        Self {
+            page_size: 20,
+            prefer_sgp: true,
+            default_queue: "all".into(),
+            default_time_range: "all".into(),
+            show_practice: false,
+            show_irregular_games: false,
+            refresh_after_game: true,
+            keep_search_history: true,
+        }
+    }
+}
+
+impl MatchHistoryConfig {
+    fn is_valid(&self) -> bool {
+        [10, 20, 30, 40, 50, 100, 200].contains(&self.page_size)
+            && (self.default_queue == "all"
+                || (!self.default_queue.is_empty()
+                    && self.default_queue.len() <= 6
+                    && self.default_queue.bytes().all(|b| b.is_ascii_digit())))
+            && ["all", "24h", "3d", "7d", "30d"].contains(&self.default_time_range.as_str())
+    }
 }
 
 impl Default for AppConfig {
@@ -74,17 +127,8 @@ impl Default for AppConfig {
             is_auto_aram_topmost: false,
             window_size: None,
             window_position: None,
-            nav_order: [
-                "/main",
-                "/duo",
-                "/rank",
-                "/recentPlayers",
-                "/aram",
-                "/selectedRole",
-                "/about",
-            ]
-            .map(String::from)
-            .to_vec(),
+            nav_order: NAV_ROUTES.map(String::from).to_vec(),
+            match_history: MatchHistoryConfig::default(),
         }
     }
 }
@@ -110,6 +154,30 @@ impl AppConfig {
         }
     }
 
+    /// Brings settings saved by older versions to the current shape before
+    /// validation: unknown or repeated routes are dropped, the saved order of known
+    /// routes is kept, the history page (added later) goes right before About, and
+    /// any other missing route is appended.
+    pub fn migrate(&mut self) {
+        let mut order: Vec<String> = Vec::new();
+        for path in &self.nav_order {
+            if NAV_ROUTES.contains(&path.as_str()) && !order.contains(path) {
+                order.push(path.clone());
+            }
+        }
+        if !order.iter().any(|path| path == "/match-history")
+            && let Some(about) = order.iter().position(|path| path == "/about")
+        {
+            order.insert(about, "/match-history".into());
+        }
+        for route in NAV_ROUTES {
+            if !order.iter().any(|path| path == route) {
+                order.push(route.into());
+            }
+        }
+        self.nav_order = order;
+    }
+
     pub fn validate(&self) -> AppResult<()> {
         if self
             .appearance_mode
@@ -121,18 +189,9 @@ impl AppConfig {
             ]
             .contains(&self.design_theme.as_str())
             || self.schema_version != 1
-            || self.nav_order.len() != 7
-            || [
-                "/main",
-                "/duo",
-                "/rank",
-                "/recentPlayers",
-                "/aram",
-                "/selectedRole",
-                "/about",
-            ]
-            .iter()
-            .any(|path| {
+            || self.nav_order.len() != NAV_ROUTES.len()
+            || !self.match_history.is_valid()
+            || NAV_ROUTES.iter().any(|path| {
                 self.nav_order
                     .iter()
                     .filter(|saved| saved.as_str() == *path)
@@ -207,6 +266,8 @@ impl ConfigStore {
                         "Configuration is invalid; original file preserved",
                     )
                 })?;
+                let mut parsed = parsed;
+                parsed.migrate();
                 parsed.validate()?;
                 parsed
             }
@@ -265,13 +326,14 @@ impl ConfigStore {
                 let value: Value = serde_json::from_slice(&bytes).map_err(|_| {
                     AppError::new("InvalidInput", "Previous configuration is invalid")
                 })?;
-                let config: AppConfig =
+                let mut config: AppConfig =
                     serde_json::from_value(value.get("config").cloned().ok_or_else(|| {
                         AppError::new("InvalidInput", "Previous configuration is missing")
                     })?)
                     .map_err(|_| {
                         AppError::new("InvalidInput", "Previous configuration is invalid")
                     })?;
+                config.migrate();
                 config.validate()?;
                 Ok(config)
             })();
@@ -482,6 +544,65 @@ mod tests {
             assert!(store.update(invalid).is_err());
             assert_eq!(store.get(), config);
         }
+    }
+    #[test]
+    fn seven_route_settings_gain_match_history_before_about_and_keep_everything_else() {
+        let directory = tempfile::tempdir().unwrap();
+        fs::write(
+            directory.path().join("config.json"),
+            r#"{"language":"en","isAutoAccept":false,"navOrder":["/about","/duo","/main","/rank","/recentPlayers","/aram","/selectedRole"]}"#,
+        )
+        .unwrap();
+        let store = ConfigStore::open(directory.path()).unwrap();
+        let config = store.get();
+        assert_eq!(
+            config.nav_order,
+            [
+                "/match-history",
+                "/about",
+                "/duo",
+                "/main",
+                "/rank",
+                "/recentPlayers",
+                "/aram",
+                "/selectedRole"
+            ]
+        );
+        assert!(!config.is_auto_accept);
+        assert_eq!(config.language, "en");
+        assert_eq!(config.match_history, MatchHistoryConfig::default());
+        let mut repeated = AppConfig {
+            nav_order: ["/duo", "/duo", "/removed", "/main"]
+                .map(String::from)
+                .to_vec(),
+            ..AppConfig::default()
+        };
+        repeated.migrate();
+        assert_eq!(
+            repeated.nav_order,
+            [
+                "/duo",
+                "/main",
+                "/rank",
+                "/recentPlayers",
+                "/aram",
+                "/selectedRole",
+                "/match-history",
+                "/about"
+            ]
+        );
+        repeated.validate().unwrap();
+    }
+    #[test]
+    fn match_history_preferences_reject_unknown_values() {
+        let mut config = AppConfig::default();
+        config.match_history.page_size = 25;
+        assert!(config.validate().is_err());
+        config.match_history.page_size = 200;
+        config.match_history.default_queue = "../1".into();
+        assert!(config.validate().is_err());
+        config.match_history.default_queue = "450".into();
+        config.validate().unwrap();
     }
     #[test]
     fn hidden_player_history_settings_default_and_persist_with_bounded_count() {

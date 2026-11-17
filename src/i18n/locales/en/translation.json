@@ -5,6 +5,7 @@
     "rank": "Rank",
     "recentPlayers": "Recent",
     "aram": "ARAM",
+    "matchHistory": "Match History",
     "selectedRole": "Role",
     "about": "About"
   },
@@ -138,7 +139,13 @@
     "currentVersion": "Current Version",
     "latestVersion": "Latest Version",
     "help": "If you find this project useful, consider giving it a star ⭐️！\n<br/>\nYour support is highly appreciated！\n",
-    "github": "View on GitHub"
+    "github": "View on GitHub",
+    "updateNow": "Update now",
+    "updateRetry": "Retry update",
+    "updateDownloading": "Downloading {{downloaded}} / {{total}} MB ({{percent}}%)",
+    "updateRestarting": "Download complete, restarting…",
+    "updateFailed": "Update failed: {{reason}}",
+    "updateNoPermission": "Cannot write to the app folder; download it from GitHub instead"
   },
   "common": {
     "close": "Close",

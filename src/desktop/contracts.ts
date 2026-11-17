@@ -19,6 +19,17 @@ export interface AppConfig {
   windowSize?: {width: number; height: number} | null;
   windowPosition?: {x: number; y: number} | null;
   navOrder?: string[];
+  matchHistory?: MatchHistoryConfig;
+}
+export interface MatchHistoryConfig {
+  pageSize: number;
+  preferSgp: boolean;
+  defaultQueue: string;
+  defaultTimeRange: 'all' | '24h' | '3d' | '7d' | '30d';
+  showPractice: boolean;
+  showIrregularGames: boolean;
+  refreshAfterGame: boolean;
+  keepSearchHistory: boolean;
 }
 export interface AppSnapshot {
   appVersion: string;

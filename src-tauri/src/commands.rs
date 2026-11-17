@@ -227,6 +227,24 @@ pub async fn get_latest_release(
     guard(&window)?;
     state.external.latest_release().await
 }
+/// Downloads the latest release next to this EXE, starts it and exits; the new EXE
+/// deletes this one. Progress arrives as `app-update-progress` events.
+#[tauri::command]
+pub async fn install_app_update(
+    window: tauri::WebviewWindow,
+    state: State<'_, AppState>,
+) -> AppResult<()> {
+    guard(&window)?;
+    let release = state.external.latest_release().await?;
+    let app = window.app_handle().clone();
+    crate::updater::install(&app, &release).await?;
+    // Let the command reply reach the page before the process exits.
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+        app.exit(0);
+    });
+    Ok(())
+}
 #[tauri::command]
 pub async fn get_champions(
     window: tauri::WebviewWindow,

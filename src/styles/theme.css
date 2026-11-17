@@ -572,6 +572,12 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.about-versions { align-items:center; }
+.about-versions dd { display:flex; align-items:center; gap:8px; min-height:24px; }
+.about-panel .about-update-button { height:24px; min-height:0; padding-inline:10px; font-size:12px; gap:4px; }
+.about-update-status { display:flex; flex-direction:column; gap:6px; width:min(280px,100%); font-size:13px; color:var(--text-muted); }
+.about-panel .about-update-error { color:var(--danger); }
+
 .about-panel p {
   margin: 0;
   color: var(--text-muted);

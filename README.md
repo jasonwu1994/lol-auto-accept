@@ -58,6 +58,9 @@
 - 舊版歷史資料會在首次啟動時自動複製到新位置，舊檔保留作為備份。
 - 請先正常關閉舊版。首次啟動會讀取設定目錄或程式旁的 `app-config.json`（也支援舊版 `resources/app/app-config.json`）；缺值使用預設設定，舊檔不改寫。戰績由遊戲客戶端按需讀取，無需匯入。
 
+## 🙏 致謝
+- 戰績頁面參考並移植自 [LeagueAkari](https://github.com/LeagueAkari/LeagueAkari)（MIT 授權），感謝原作者。
+
 ## 🎉 結尾
   **如果這個程式對您有幫助，請給個⭐️！**  
   **這是對我最大的鼓勵！**
