@@ -32,6 +32,22 @@ export function currentChampionsByPuuid(session) {
   return champions;
 }
 
+// Players who queued with the owner, per this game's own teamParticipantId. Missing ids stay unknown,
+// never inferred from history.
+export function currentPartyPuuids(session, ownerPuuid) {
+  if (!ownerPuuid) return [];
+  const data = session?.gameData ?? {};
+  for (const key of ['teamOne', 'teamTwo']) {
+    const team = Array.isArray(data[key]) ? data[key] : [];
+    const owner = team.find(player => player.puuid === ownerPuuid);
+    if (!owner) continue;
+    const id = owner.teamParticipantId;
+    if (id === undefined || id === null || id === '') return [];
+    return team.filter(player => player.puuid && player.puuid !== ownerPuuid && String(player.teamParticipantId) === String(id)).map(player => player.puuid);
+  }
+  return [];
+}
+
 export function rosterRecoveryKey(session) {
   const data = session?.gameData;
   return JSON.stringify([data?.gameId, ...['teamOne', 'teamTwo', 'playerChampionSelections'].map(key =>

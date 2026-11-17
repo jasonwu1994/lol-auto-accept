@@ -6,6 +6,8 @@ import {hasPlayerId} from '../desktop/identifiers';
 
 export function usePlayerIdentity(player) {
   const live = useSelector(state => state.GameReducer.gameflowIsLive !== false || state.GameReducer.champSelectIsLive !== false);
+  // A retained roster stays resolvable after the game while the client is still connected.
+  const connected = useSelector(state => state.AuthReducer.connection === 'Connected');
   const generation = useSelector(state => state.GameReducer.sessionIdentity?.connectionGeneration);
   const sessionKey = useSelector(state => state.GameReducer.sessionIdentity?.sessionKey);
   const initial = initialPlayerIdentity(player);
@@ -15,8 +17,10 @@ export function usePlayerIdentity(player) {
   const key = JSON.stringify([generation, sessionKey, puuid, summonerId, initial.name, recovered]);
   const [result, setResult] = useState(null);
   const cached = ApiUtils.getCachedSummoner(hasPuuid(player) ? puuid : undefined, hasPlayerId(summonerId) ? summonerId : undefined);
+  const retained = readRetainedIdentity(player);
+  const canLookup = live || (connected && !retained?.name);
   useEffect(() => {
-    if (!live) return;
+    if (!canLookup) return;
     let active = true;
     let timer;
     const fetchName = async (attempt = 0) => {
@@ -31,12 +35,11 @@ export function usePlayerIdentity(player) {
     };
     fetchName();
     return () => {active = false; clearTimeout(timer);};
-  }, [key, puuid, summonerId, initial.name, recovered, live]);
-  const retained = readRetainedIdentity(player);
+  }, [key, puuid, summonerId, initial.name, recovered, canLookup]);
   if (result?.key === key && result.identity.name) return result.identity;
   if (cached) return {...initial, name: playerName(cached) || initial.name};
   if (retained) return {...retained, recovered:initial.recovered};
-  return {...initial, loading: live && (hasPuuid(player) || hasPlayerId(summonerId))};
+  return {...initial, loading: canLookup && (hasPuuid(player) || hasPlayerId(summonerId))};
 }
 
 export default function useSummonerName(puuid) {

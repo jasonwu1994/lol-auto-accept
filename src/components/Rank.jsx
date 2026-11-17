@@ -3,7 +3,7 @@ import {rankedMatchKey, rankedMatchStore} from './common/rankedLookup';
 import useChampionData from '../hooks/useChampionData';
 import React, {useState, useSyncExternalStore, useCallback} from 'react';
 import {desktop} from '../desktop/tauri';
-import {connect} from "react-redux";
+import {connect, useStore} from "react-redux";
 import {Tabs} from './common/Controls';
 import withErrorBoundary from "./error/withErrorBoundary";
 import ApiUtils from "../api/api-utils";
@@ -18,18 +18,23 @@ function Rank(props) {
   const [current, setCurrent] = useState('solo');
   const {t} = useTranslation();
   const roster = useCurrentRoster();
+  const store = useStore();
   const ids = [...new Set(Object.values(roster).flat().map(player => player.summonerId).filter(hasPlayerId).map(String))].sort();
-  const lookupKey = props.gameflowIsLive === false ? null : rankedMatchKey(props.gameflowSession, props.sessionIdentity, desktop.snapshot()?.currentSummoner?.puuid);
+  // Ranks are read only while this page is open, including for the roster retained after the game.
+  const connected = props.connection === 'Connected';
+  // Each phase change briefly re-reads the client without an account; pause instead of starting a new batch.
+  const ownerPuuid = desktop.snapshot()?.currentSummoner?.puuid;
+  const lookupKey = connected && ownerPuuid ? rankedMatchKey(props.gameflowSession, props.sessionIdentity, ownerPuuid) : null;
   const idsKey = JSON.stringify(ids);
   const subscribe = useCallback(listener => rankedMatchStore.subscribe(lookupKey, JSON.parse(idsKey), id => {
-    const current = desktop.snapshot();
-    if (rankedMatchKey(current?.gameflowSession, current, current?.currentSummoner?.puuid) !== lookupKey) {
+    const {AuthReducer, GameReducer} = store.getState();
+    if (AuthReducer.connection !== 'Connected' || rankedMatchKey(GameReducer.gameflowSession, GameReducer.sessionIdentity, desktop.snapshot()?.currentSummoner?.puuid) !== lookupKey) {
       return Promise.reject(new Error('Match changed'));
     }
     return ApiUtils.getRankedStats(id);
-  }, listener), [lookupKey, idsKey]);
+  }, listener), [lookupKey, idsKey, store]);
   const ranked = useSyncExternalStore(subscribe, () => rankedMatchStore.read(lookupKey), () => rankedMatchStore.read(lookupKey));
-  const loading = props.gameflowIsLive !== false && ids.length > 0 && !ranked.loaded;
+  const loading = connected && ids.length > 0 && !ranked.loaded;
   const stats = new Map(ranked.players.map(player => [String(player.summonerId), player.rankedStats]));
   const playerList = Object.fromEntries(Object.entries(roster).map(([key, players]) => [key, players.map(player => ({...player, rankedStats: stats.get(String(player.summonerId))}))]));
 
@@ -83,7 +88,7 @@ const Player = ({player, queueType}) => {
 const mapStateToProps = (state) => {
   return {
     sessionIdentity: state.GameReducer.sessionIdentity,
-    gameflowIsLive: state.GameReducer.gameflowIsLive,
+    connection: state.AuthReducer.connection,
     gameflowSession: state.GameReducer.gameflowSession
   }
 }

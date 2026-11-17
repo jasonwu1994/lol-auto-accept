@@ -171,3 +171,13 @@ it('retains recent results while paused or refreshing and replaces them only on 
  store.subscribe(null,vi.fn(),vi.fn());resolve([{gameId:'stale'}]);await vi.advanceTimersByTimeAsync(0);expect(store.read(null).games).toBe(games);
  store.subscribe('three',async()=>[],vi.fn());await vi.advanceTimersByTimeAsync(0);expect(store.read('three').games).toEqual([]);
 });
+it('does not query again when the same match resumes after a phase-change pause',async()=>{
+ vi.useFakeTimers();const store=createRecentMatchStore();const games=[{gameId:'one'}];const load=vi.fn(async()=>games);
+ store.subscribe('one',load,vi.fn());await vi.advanceTimersByTimeAsync(0);
+ store.subscribe(null,vi.fn(),vi.fn());store.subscribe('one',load,vi.fn());await vi.advanceTimersByTimeAsync(0);
+ expect(load).toHaveBeenCalledOnce();expect(store.read('one').games).toBe(games);
+ const failing=vi.fn().mockRejectedValue(Error('offline'));
+ store.subscribe('two',failing,vi.fn());await vi.advanceTimersByTimeAsync(10000);
+ store.subscribe(null,vi.fn(),vi.fn());store.subscribe('two',async()=>[],vi.fn());await vi.advanceTimersByTimeAsync(0);
+ expect(store.read('two').games).toEqual([]);
+});

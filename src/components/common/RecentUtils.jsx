@@ -2,7 +2,8 @@ import {trackEvent} from '../../analytics/client';
 import {decimalId} from '../../desktop/identifiers';
 import {desktop} from '../../desktop/tauri';
 import ApiUtils from "../../api/api-utils";
-import {currentPlayers} from './currentPlayers';
+import {currentPartyPuuids, currentPlayers} from './currentPlayers';
+import {hasPuuid} from './playerIdentity';
 import DatabaseUtils from '../../components/common/DatabaseUtils';
 
 // Retry only the idempotent recent-history refresh, never game actions.
@@ -22,9 +23,31 @@ export async function retryRecentRefresh(refresh, signal) {
   }
 }
 
-export function recentPlayersQueryKey(session, identity, count, ownerPuuid) {
-  const puuids = [...new Set(Object.values(currentPlayers(session)).flat().map(player => player.puuid).filter(Boolean))].sort();
-  return JSON.stringify([identity?.connectionGeneration, ownerPuuid ?? '', session?.gameData?.gameId, puuids, count]);
+// Champion select hides some teammates' names; like the chat summary, those identities are skipped.
+const concealed = player => player?.nameVisibilityType === 'HIDDEN' || player?.isNameObfuscated === true || player?.nameHidden === true;
+
+// Champion select queries the teammates it already knows. In game the whole roster is queried,
+// including players whose names are hidden: the gameflow still carries their puuid.
+export function recentPlayersQueryKey(session, identity, count, ownerPuuid, champSelect = null) {
+  const players = champSelect ? (Array.isArray(champSelect.myTeam) ? champSelect.myTeam : []).filter(player => !concealed(player))
+    : Object.values(currentPlayers(session)).flat();
+  const puuids = [...new Set(players.filter(hasPuuid).map(player => player.puuid))].sort();
+  const scope = champSelect ? {room: champSelect.chatDetails?.multiUserChatId ?? ''} : {gameId: session?.gameData?.gameId};
+  return JSON.stringify([identity?.connectionGeneration, ownerPuuid ?? '', scope, puuids, count]);
+}
+
+export function recentQueryKeyForPhase(phase, gameflowSession, champSelectSession, identity, count, ownerPuuid) {
+  return recentPlayersQueryKey(gameflowSession, identity, count, ownerPuuid, phase === 'ChampSelect' ? champSelectSession ?? {} : null);
+}
+
+const lookupPhases = new Set(['ChampSelect', 'GameStart', 'InProgress', 'Reconnect']);
+
+// The lookup runs once in champion select with the known teammates, and once more in game when the
+// full roster changes the key. End of game and the brief account-less re-read on every phase change
+// only pause it, so the last result stays shown until the next champion select.
+export function recentLookupKey({live, phase, connection, ownerPuuid, queryKey}) {
+  if (live === false || connection !== 'Connected' || !ownerPuuid || !lookupPhases.has(phase)) return null;
+  return JSON.stringify([connection, queryKey]);
 }
 
 const emptyRecent = {loading: true, games: [], error: null};
@@ -39,8 +62,12 @@ export function createRecentMatchStore() {
     subscribe(expected, load, listener) {
       listeners.add(listener);
       if (expected == null) {
-        controller?.abort(); key = null;
-        if (snapshot.loading) snapshot = {...snapshot, loading:false};
+        // Phase changes briefly pause the lookup. A finished result keeps its key so resuming the
+        // same match does not query again; only an unfinished or failed lookup restarts.
+        if (snapshot.loading || snapshot.error) {
+          controller?.abort(); key = null;
+          if (snapshot.loading) snapshot = {...snapshot, loading:false};
+        }
         return () => listeners.delete(listener);
       }
       if (key !== expected) {
@@ -66,11 +93,32 @@ export function createRecentMatchStore() {
 
 export const recentMatchStore = createRecentMatchStore();
 
+// Party members seen from champion select through the game. After the game the client's lobby is
+// gone or replaced, so a later lookup must still exclude the party observed earlier. A game adopts
+// the party of the champion select right before it.
+const observedParty = {room: null, gameId: null, puuids: new Set()};
+const knownId = value => value == null || value === '' || String(value) === '0' ? null : String(value);
+export function rememberParty(scope, puuids) {
+  const room = knownId(scope?.room);
+  const gameId = knownId(scope?.gameId);
+  if (room) {
+    if (observedParty.room !== room) Object.assign(observedParty, {room, gameId: null, puuids: new Set()});
+  } else if (gameId) {
+    if (observedParty.gameId !== gameId) {
+      if (observedParty.gameId == null && observedParty.room) observedParty.gameId = gameId;
+      else Object.assign(observedParty, {room: null, gameId, puuids: new Set()});
+    }
+  } else return [...new Set(puuids)];
+  puuids.forEach(puuid => observedParty.puuids.add(puuid));
+  return [...observedParty.puuids];
+}
+
 export async function loadRecentMatch(queryKey, signal) {
-  const [, ownerPuuid, currentGameId, playersPuuids, count] = JSON.parse(queryKey);
+  const [, ownerPuuid, scope, playersPuuids, count] = JSON.parse(queryKey);
+  const currentGameId = scope?.gameId ?? null;
   const assertCurrent = () => {
     const current = desktop.snapshot();
-    if (signal.aborted || current?.config?.recentTeammateCheckGameCount !== count || recentPlayersQueryKey(current?.gameflowSession, current, count, current?.currentSummoner?.puuid) !== queryKey) {
+    if (signal.aborted || current?.config?.recentTeammateCheckGameCount !== count || recentQueryKeyForPhase(current?.phase, current?.gameflowSession, current?.champSelectSession, current, count, current?.currentSummoner?.puuid) !== queryKey) {
       throw new Error('Match changed during recent-player lookup');
     }
   };
@@ -80,7 +128,8 @@ export async function loadRecentMatch(queryKey, signal) {
   // excluded below, and the configured number of earlier games must still be available.
   await RecentUtils.syncRecentGames(0, count, signal, assertCurrent);
   assertCurrent();
-  const groups = await RecentUtils.getCategorizePuuids(playersPuuids);
+  const party = scope?.room == null ? currentPartyPuuids(desktop.snapshot()?.gameflowSession, ownerPuuid) : [];
+  const groups = await RecentUtils.getCategorizePuuids(playersPuuids, party, scope);
   assertCurrent();
   if (ownerPuuid && groups.ownerPuuid !== ownerPuuid) throw new Error('Account changed during recent-player lookup');
   const games = await DatabaseUtils.getAllGamesByOwnerPuuid(groups.ownerPuuid, count + 1);
@@ -172,10 +221,11 @@ class RecentUtils {
     }));
   }
 
-  static async getCategorizePuuids(playersPuuids) {
+  static async getCategorizePuuids(playersPuuids, partyPuuids = [], scope = null) {
     let ownerPuuid = await ApiUtils.getCurrentSummonerPuuid();
     let lobbyCommsMembersPuuids = await ApiUtils.getLobbyCommsMembersPuuids();
-    return RecentUtils.filterPlayersAndLobbyMembersAndOwnerPuuids(playersPuuids, lobbyCommsMembersPuuids, ownerPuuid)
+    const party = rememberParty(scope, [...lobbyCommsMembersPuuids, ...partyPuuids]);
+    return RecentUtils.filterPlayersAndLobbyMembersAndOwnerPuuids(playersPuuids, party, ownerPuuid)
   }
 
   /**

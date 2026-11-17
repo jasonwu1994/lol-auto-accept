@@ -38,7 +38,7 @@ it('keeps the history query stable for cosmetic gameflow changes but refreshes r
   const session={gameData:{gameId:'42',teamOne:[{puuid:'a',championId:1},{puuid:'b'}]}};
   const key=recentPlayersQueryKey(session,identity,5);
   // loadRecentMatch reads the current game id from this slot to exclude it from encounters.
-  expect(JSON.parse(key)[2]).toBe('42');
+  expect(JSON.parse(key)[2]).toEqual({gameId:'42'});
   const changed={gameData:{gameId:'42',teamOne:[{puuid:'b'},{puuid:'a',championId:2}]},timer:20};
   expect(recentPlayersQueryKey(changed,identity,5)).toBe(key);
   expect(recentPlayersQueryKey(changed,identity,10)).not.toBe(key);
@@ -92,4 +92,50 @@ it('maps each current player to the champion they have in this game',()=>{
   expect([...currentChampionsByPuuid(session)]).toEqual([['a',62],['c',17],['d',81]]);
   expect(currentChampionsByPuuid(undefined).size).toBe(0);
   expect(currentChampionsByPuuid({gameData:{teamOne:[{puuid:'x'}]}}).size).toBe(0);
+});
+describe('current party exclusion after the game',()=>{
+  it('reads the party from this game teamParticipantId and leaves missing ids unknown',async()=>{
+    const {currentPartyPuuids}=await import('./currentPlayers');
+    const session={gameData:{teamOne:[{puuid:'owner',teamParticipantId:3},{puuid:'friend',teamParticipantId:3},{puuid:'solo',teamParticipantId:4}],teamTwo:[{puuid:'enemy',teamParticipantId:3}]}};
+    expect(currentPartyPuuids(session,'owner')).toEqual(['friend']);
+    expect(currentPartyPuuids({gameData:{teamOne:[{puuid:'owner'},{puuid:'friend'}]}},'owner')).toEqual([]);
+    expect(currentPartyPuuids(session,'')).toEqual([]);
+  });
+  it('keeps the party seen in champion select and during the game after the lobby is gone',async()=>{
+    const {rememberParty}=await import('./RecentUtils');
+    expect(rememberParty({room:'room-1'},['friend'])).toEqual(['friend']);
+    expect(rememberParty({gameId:'7001'},[])).toEqual(['friend']);
+    expect(rememberParty({gameId:'7001'},['mate'])).toEqual(['friend','mate']);
+    expect(rememberParty({gameId:'7002'},[])).toEqual([]);
+    expect(rememberParty({room:'room-2'},[])).toEqual([]);
+    expect(rememberParty({gameId:0},['lobby'])).toEqual(['lobby']);
+  });
+});
+describe('recent players per phase',()=>{
+  const identity={connectionGeneration:1};
+  it('queries the known champion-select teammates and skips concealed ones',async()=>{
+    const {recentQueryKeyForPhase}=await import('./RecentUtils');
+    const champ={chatDetails:{multiUserChatId:'room'},myTeam:[{puuid:'owner'},{puuid:'mate'},{puuid:'hidden',nameVisibilityType:'HIDDEN'},{puuid:'00000000-0000-0000-0000-000000000000'},{puuid:''}]};
+    const [, , scope, puuids]=JSON.parse(recentQueryKeyForPhase('ChampSelect',{gameData:{gameId:0}},champ,identity,5,'owner'));
+    expect(scope).toEqual({room:'room'});
+    expect(puuids).toEqual(['mate','owner']);
+  });
+  it('queries the whole game roster in game, including players hidden from the team lists',async()=>{
+    const {recentQueryKeyForPhase}=await import('./RecentUtils');
+    const session={gameData:{gameId:'42',teamOne:[{puuid:'owner'},{puuid:'mate'}],teamTwo:[{puuid:'enemy'}],playerChampionSelections:[{puuid:'hidden',championId:17}]}};
+    const [, , scope, puuids]=JSON.parse(recentQueryKeyForPhase('InProgress',session,{myTeam:[{puuid:'mate'}]},identity,5,'owner'));
+    expect(scope).toEqual({gameId:'42'});
+    expect(puuids).toEqual(['enemy','hidden','mate','owner']);
+  });
+});
+describe('recent lookup runs once in champion select and once in game',()=>{
+  it('starts only in champion select or while the game is played and pauses in every other phase',async()=>{
+    const {recentLookupKey}=await import('./RecentUtils');
+    const base={live:true,connection:'Connected',ownerPuuid:'owner',queryKey:'match'};
+    for(const phase of ['ChampSelect','GameStart','InProgress','Reconnect'])expect(recentLookupKey({...base,phase})).toBe(JSON.stringify(['Connected','match']));
+    for(const phase of ['None','Lobby','Matchmaking','ReadyCheck','PreEndOfGame','WaitingForStats','EndOfGame'])expect(recentLookupKey({...base,phase})).toBeNull();
+    expect(recentLookupKey({...base,phase:'InProgress',ownerPuuid:undefined})).toBeNull();
+    expect(recentLookupKey({...base,phase:'InProgress',live:false})).toBeNull();
+    expect(recentLookupKey({...base,phase:'InProgress',connection:'Connecting'})).toBeNull();
+  });
 });
