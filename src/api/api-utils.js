@@ -65,6 +65,7 @@ class ApiUtils {
   static getChampionsBalance() {return response(query('get_champions_balance'));}
   static getChampionsBalanceByCache() {return publicReads.read('balance', 3600000, ()=>query('get_champions_balance'));}
   static getPickableChampionIds() {return response(query('get_pickable_champion_ids'));}
+  static getSubsetChampionIds() {return response(query('get_subset_champion_ids'));}
   static getVersions() {return response(query('get_versions'));}
   static getLatestRelease() {return publicReads.read('latest-release', 3600000, ()=>query('get_latest_release'));}
   static getCurrentLang() {return i18next.language === 'en' ? 'en_US' : 'zh_TW';}

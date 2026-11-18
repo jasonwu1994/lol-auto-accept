@@ -39,8 +39,51 @@ pub fn validate_hovercard(queue: &str, tier: &str) -> AppResult<()> {
     Ok(())
 }
 
+/// In a subset pick session the client only accepts bench swaps once the pick
+/// phase is over: the bench is visible but swaps are rejected, so preferences
+/// wait for the final phase instead of being spent on a refused request.
+/// Sessions without subset picks keep their bench open as before.
+pub fn bench_swap_open(champ_select: &Value) -> bool {
+    champ_select["allowSubsetChampionPicks"] != true
+        || !matches!(
+            champ_select.pointer("/timer/phase").and_then(Value::as_str),
+            Some("BAN_PICK" | "PLANNING")
+        )
+}
+
+/// Whether a JSON list of champion ids (subset or pickable) contains `champion_id`.
+pub fn lists_champion(ids: &Value, champion_id: u32) -> bool {
+    ids.as_array()
+        .is_some_and(|ids| ids.iter().any(|id| *id == champion_id))
+}
+
+/// The local player's offered champions can be picked only while the subset pick
+/// phase is active and their own pick action is still open.
+pub fn open_pick_action(champ_select: &Value) -> Option<u64> {
+    if champ_select["allowSubsetChampionPicks"] != true
+        || champ_select.pointer("/timer/phase").and_then(Value::as_str) != Some("BAN_PICK")
+    {
+        return None;
+    }
+    let cell = champ_select["localPlayerCellId"].as_i64()?;
+    champ_select["actions"]
+        .as_array()?
+        .iter()
+        .filter_map(Value::as_array)
+        .flatten()
+        .find(|action| {
+            action["type"] == "pick"
+                && action["completed"] != true
+                && action["actorCellId"].as_i64() == Some(cell)
+        })
+        .and_then(|action| action["id"].as_u64())
+}
+
 pub fn bench_candidates(snapshot: &LcuSnapshot) -> Vec<u32> {
-    if snapshot.phase != "ChampSelect" || snapshot.champ_select["benchEnabled"] != true {
+    if snapshot.phase != "ChampSelect"
+        || snapshot.champ_select["benchEnabled"] != true
+        || !bench_swap_open(&snapshot.champ_select)
+    {
         return Vec::new();
     }
     let Some(bench) = snapshot.champ_select["benchChampions"].as_array() else {
@@ -308,6 +351,38 @@ mod tests {
         snapshot.phase = "ChampSelect".into();
         snapshot.champ_select["benchEnabled"] = Value::Bool(false);
         assert_eq!(bench_candidates(&snapshot).first().copied(), None);
+    }
+    #[test]
+    fn bench_preferences_wait_until_the_pick_phase_ends() {
+        let mut snapshot = LcuSnapshot {
+            phase: "ChampSelect".into(),
+            aram_preferences: vec![2],
+            champ_select: json!({"benchEnabled":true,"allowSubsetChampionPicks":true,"timer":{"phase":"BAN_PICK"},"benchChampions":[{"championId":2}]}),
+            ..Default::default()
+        };
+        assert!(bench_candidates(&snapshot).is_empty());
+        snapshot.champ_select["timer"]["phase"] = json!("PLANNING");
+        assert!(bench_candidates(&snapshot).is_empty());
+        snapshot.champ_select["timer"]["phase"] = json!("FINALIZATION");
+        assert_eq!(bench_candidates(&snapshot), vec![2]);
+        // Sessions without subset picks are not held back by the timer phase.
+        snapshot.champ_select["timer"]["phase"] = json!("BAN_PICK");
+        snapshot.champ_select["allowSubsetChampionPicks"] = json!(false);
+        assert_eq!(bench_candidates(&snapshot), vec![2]);
+    }
+    #[test]
+    fn open_pick_action_belongs_to_the_local_player_during_subset_picks() {
+        let mut session = json!({"allowSubsetChampionPicks":true,"timer":{"phase":"BAN_PICK"},"localPlayerCellId":1,
+            "actions":[[{"id":3,"type":"pick","completed":false,"actorCellId":0},{"id":4,"type":"pick","completed":false,"actorCellId":1}]]});
+        assert_eq!(open_pick_action(&session), Some(4));
+        session["actions"][0][1]["completed"] = json!(true);
+        assert_eq!(open_pick_action(&session), None);
+        session["actions"][0][1]["completed"] = json!(false);
+        session["timer"]["phase"] = json!("FINALIZATION");
+        assert_eq!(open_pick_action(&session), None);
+        session["timer"]["phase"] = json!("BAN_PICK");
+        session["allowSubsetChampionPicks"] = json!(false);
+        assert_eq!(open_pick_action(&session), None);
     }
     #[test]
     fn rejects_arbitrary_hovercard_values() {

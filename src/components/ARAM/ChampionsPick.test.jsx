@@ -54,3 +54,36 @@ it('lists bench portraits once and keeps swaps disabled until eligibility has be
   expect(retained).toContain('champion:3');
   expect(retained.match(/<button[^>]*disabled=""/g)).toHaveLength(3);
 });
+
+it('lets bench champions be preselected during the pick phase instead of swapping', () => {
+  const state = {...store.getState(), AuthReducer: {connection: 'Connected'}, GameReducer: {
+    ...store.getState().GameReducer,
+    gamePhase: 'ChampSelect',
+    aramPreferences: [7],
+    champSelectSession: {benchEnabled: true, allowSubsetChampionPicks: true, timer: {phase: 'BAN_PICK'},
+      localPlayerCellId: 0, benchChampions: [{championId: 6}, {championId: 7}]},
+    myTeam: [{cellId: 0, isSelf: true, championId: 5}, {cellId: 1, championId: 2}]
+  }};
+  const html = renderToStaticMarkup(<Provider store={configureStore({reducer: () => state})}><ChampionsPick/></Provider>);
+  expect(html).toContain(i18n.t('aram.benchLocked'));
+  expect(html).toContain(`aria-label="${i18n.t('aram.preselectChampion', {champion: 'Champion 6'})}"`);
+  expect(html).toContain(`aria-label="${i18n.t('aram.unpreselectChampion', {champion: 'Champion 7'})}"`);
+  expect(html).not.toContain(i18n.t('aram.swapChampion', {champion: 'Champion 6'}));
+  expect(html.match(new RegExp(i18n.t('aram.preselected'), 'g'))).toHaveLength(1);
+  expect(html.match(/<button[^>]*disabled=""/g)).toBeNull();
+  // Offered champions are fetched after mount, so the static render has no "your champions" section yet.
+  expect(html).not.toContain(i18n.t('aram.yourChampions'));
+});
+
+it('keeps bench swaps immediate once the final phase opens', () => {
+  const state = {...store.getState(), AuthReducer: {connection: 'Connected'}, GameReducer: {
+    ...store.getState().GameReducer,
+    gamePhase: 'ChampSelect',
+    champSelectSession: {benchEnabled: true, allowSubsetChampionPicks: true, timer: {phase: 'FINALIZATION'},
+      benchChampions: [{championId: 6}]},
+    myTeam: []
+  }};
+  const html = renderToStaticMarkup(<Provider store={configureStore({reducer: () => state})}><ChampionsPick/></Provider>);
+  expect(html).not.toContain(i18n.t('aram.benchLocked'));
+  expect(html).toContain(`aria-label="${i18n.t('aram.swapChampion', {champion: 'Champion 6'})}"`);
+});

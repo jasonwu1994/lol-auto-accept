@@ -164,6 +164,16 @@ impl Transport {
         .await
     }
 
+    /// Completes the local player's pick action with one of their offered champions.
+    pub async fn pick(&self, action_id: u64, champion_id: u32) -> AppResult<Value> {
+        self.request(
+            Method::PATCH,
+            &format!("/lol-champ-select/v1/session/actions/{action_id}"),
+            Some(serde_json::json!({"championId": champion_id, "completed": true, "type": "pick"})),
+        )
+        .await
+    }
+
     pub async fn chat(&self, room: &str, body: &str) -> AppResult<Value> {
         super::validate_identifier(room)?;
         if body.is_empty() || body.len() > 16000 {

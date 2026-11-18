@@ -656,6 +656,27 @@ a:hover {
 .aram-table tr:hover td { background:var(--surface-hover); }
 .aram-table tr[data-selected]:hover td { background:var(--accent-soft-hover); }
 .aram-table tr[data-self] td { background:var(--self-row); }
+.pick-section-header { display:flex; align-items:baseline; justify-content:space-between; gap:8px; min-width:0; }
+.pick-section-header h3 { flex:none; }
+.pick-section-hint { font-size:12px; color:var(--muted); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.subset-section { margin-bottom:16px; }
+.subset-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:8px; }
+.subset-grid .subset-card { width:100%; height:72px; justify-content:flex-start; gap:10px; padding:8px; text-align:left; border-radius:12px; overflow:hidden; }
+.subset-card[data-current] { outline:2px solid var(--accent); outline-offset:-2px; background:var(--accent-soft); }
+/* The picked card is disabled only because it is already yours; don't fade it like an unavailable one. */
+.subset-grid .subset-card[data-current][data-disabled] { opacity:1; }
+.subset-card-text { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.subset-card-title { display:flex; align-items:center; gap:6px; min-width:0; }
+.subset-card-name { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.subset-card-status { flex:none; font-size:11px; line-height:16px; padding:0 6px; border-radius:999px; color:var(--accent-text); background:var(--accent-soft); }
+.subset-balance { display:flex; flex-wrap:wrap; gap:0 6px; font-size:11px; line-height:14px; max-height:28px; overflow:hidden; }
+.balance-good { color:var(--success-soft-foreground); }
+.balance-bad { color:var(--danger-soft-foreground); }
+.bench-section { margin-bottom:16px; }
+/* Same rounded-card shape as the offered champions above, not HeroUI's pill. */
+.bench-section .bench-chip { border-radius:12px; }
+.bench-chip[data-preselected] { outline:2px solid var(--accent); outline-offset:-2px; background:var(--accent-soft); }
+.bench-chip-tag { font-size:11px; color:var(--accent-text); }
 .balance-search { width:180px; padding:8px; }
 .balance-search input { width:100%; }
 .player-result-win, .encounter-ally { color:var(--success-soft-foreground); }

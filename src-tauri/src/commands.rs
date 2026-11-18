@@ -122,6 +122,14 @@ pub async fn get_pickable_champion_ids(
     state.query(ReadOperation::PickableChampions).await
 }
 #[tauri::command]
+pub async fn get_subset_champion_ids(
+    window: tauri::WebviewWindow,
+    state: State<'_, AppState>,
+) -> AppResult<Value> {
+    guard(&window)?;
+    state.query(ReadOperation::SubsetChampions).await
+}
+#[tauri::command]
 pub async fn get_summoners_by_id(
     window: tauri::WebviewWindow,
     state: State<'_, AppState>,
@@ -293,6 +301,20 @@ pub async fn swap_bench_champion(
     state
         .lcu
         .swap_bench(champion_id, connection_generation, &session_key)
+        .await
+}
+#[tauri::command]
+pub async fn pick_subset_champion(
+    window: tauri::WebviewWindow,
+    state: State<'_, AppState>,
+    champion_id: u32,
+    connection_generation: u64,
+    session_key: String,
+) -> AppResult<Value> {
+    guard(&window)?;
+    state
+        .lcu
+        .pick_subset(champion_id, connection_generation, &session_key)
         .await
 }
 #[tauri::command]

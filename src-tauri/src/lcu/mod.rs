@@ -30,6 +30,7 @@ pub enum ReadOperation {
     CurrentSummoner,
     LobbyMembers,
     PickableChampions,
+    SubsetChampions,
     SummonersById(String),
     SummonerByPuuid(String),
     RankedByPuuid(String),
@@ -78,6 +79,9 @@ impl ReadOperation {
             Self::CurrentSummoner => "/lol-summoner/v1/current-summoner".into(),
             Self::LobbyMembers => "/lol-lobby/v2/comms/members".into(),
             Self::PickableChampions => "/lol-champ-select/v1/pickable-champion-ids".into(),
+            Self::SubsetChampions => {
+                "/lol-lobby-team-builder/champ-select/v1/subset-champion-list".into()
+            }
             Self::SummonersById(id) => {
                 numeric_id(id)?;
                 format!("/lol-summoner/v2/summoners?ids=%5B{id}%5D")
@@ -728,8 +732,17 @@ impl LcuService {
                 {
                     return Err(AppError::new("StaleSession", "Bench availability changed"));
                 }
-                let pickable = transport.read(ReadOperation::PickableChampions).await?;
-                if !pickable.as_array().is_some_and(|ids| ids.iter().any(|id| *id == champion_id)) {
+                // During the subset pick phase the client already lets you swap back to
+                // your own offered champions; everything else waits for the final phase.
+                let swaps_open = automation::bench_swap_open(&live);
+                if !swaps_open {
+                    let own = live.pointer("/timer/phase").and_then(Value::as_str) == Some("BAN_PICK")
+                        && automation::lists_champion(&transport.read(ReadOperation::SubsetChampions).await?, champion_id);
+                    if !own {
+                        return Err(AppError::new("Unavailable", "Bench swaps open after the pick phase"));
+                    }
+                }
+                if !automation::lists_champion(&transport.read(ReadOperation::PickableChampions).await?, champion_id) {
                     return Err(AppError::new("Unavailable", "Champion cannot be selected"));
                 }
                 self.check_write_gate().await?;
@@ -751,14 +764,83 @@ impl LcuService {
                     let room = snapshot.champ_select.pointer("/chatDetails/multiUserChatId")
                         .and_then(Value::as_str).unwrap_or(session_key);
                     state.ledger.insert(format!("swap:{room}:{champion_id}"));
-                    state.snapshot.aram_preferences.clear();
-                    state.snapshot.aram_revision += 1;
-                    self.publish(&mut state);
+                    // Swapping between your own offered champions during the pick phase keeps
+                    // the preselections; they are what gets swapped in once the bench opens.
+                    if swaps_open {
+                        state.snapshot.aram_preferences.clear();
+                        state.snapshot.aram_revision += 1;
+                        self.publish(&mut state);
+                    }
                 }
                 transport.swap(champion_id).await
             } => result,
         };
         self.record_result("manualBenchSwap", &result, generation, session_key)
+            .await;
+        result
+    }
+
+    /// Picks one of the champions the client offered the local player at the start
+    /// of a subset pick phase. Bench preferences are kept: they apply once the
+    /// final phase opens the shared bench.
+    pub async fn pick_subset(
+        &self,
+        champion_id: u32,
+        generation: u64,
+        session_key: &str,
+    ) -> AppResult<Value> {
+        if champion_id == 0 || champion_id > 10000 {
+            return Err(AppError::new("InvalidInput", "Invalid champion selection"));
+        }
+        let _gate = self
+            .write_gate
+            .try_lock()
+            .map_err(|_| AppError::new("Busy", "Another operation is still in progress"))?;
+        self.check_write_gate().await?;
+        let (transport, token) = self.checked_session(generation, session_key).await?;
+        let snapshot = self.snapshot().await;
+        if snapshot.phase != "ChampSelect" {
+            return Err(AppError::new(
+                "StaleSession",
+                "Champion selection has ended",
+            ));
+        }
+        let result = tokio::select! {
+            biased;
+            _ = token.cancelled() => Err(AppError::new("StaleSession", "Champion selection ended")),
+            result = async {
+                if transport.read(ReadOperation::Phase).await? != "ChampSelect" {
+                    return Err(AppError::new("StaleSession", "Champion selection has ended"));
+                }
+                let live = transport.read(ReadOperation::ChampSelect).await?;
+                if live.pointer("/chatDetails/multiUserChatId")
+                    != snapshot.champ_select.pointer("/chatDetails/multiUserChatId")
+                {
+                    return Err(AppError::new("StaleSession", "Champion selection has changed"));
+                }
+                let action = automation::open_pick_action(&live)
+                    .ok_or_else(|| AppError::new("Unavailable", "Your pick is no longer open"))?;
+                let subset = transport.read(ReadOperation::SubsetChampions).await?;
+                let pickable = transport.read(ReadOperation::PickableChampions).await?;
+                if !automation::lists_champion(&subset, champion_id)
+                    || !automation::lists_champion(&pickable, champion_id)
+                {
+                    return Err(AppError::new("Unavailable", "Champion cannot be selected"));
+                }
+                self.check_write_gate().await?;
+                self.checked_session(generation, session_key).await?;
+                {
+                    let state = self.state.lock().await;
+                    if token.is_cancelled() || state.snapshot.generation != generation
+                        || state.snapshot.session_key != session_key || state.snapshot.phase != "ChampSelect"
+                    {
+                        return Err(AppError::new("StaleSession", "Champion selection has changed"));
+                    }
+                }
+                transport.pick(action, champion_id).await
+            } => result,
+        };
+        self.record_result("manualSubsetPick", &result, generation, session_key)
             .await;
         result
     }
@@ -1372,6 +1454,14 @@ impl LcuService {
                 {
                     break;
                 }
+                // An unplayable preference was never sent; try the next one quietly and
+                // check it again on the next update in case the client was still catching up.
+                if result
+                    .as_ref()
+                    .is_err_and(|error| error.code == "Unavailable")
+                {
+                    continue;
+                }
                 self.record_result(
                     "benchSwap",
                     &result,
@@ -1451,29 +1541,44 @@ impl LcuService {
             .await?;
         let live = transport.read(ReadOperation::ChampSelect).await?;
         if live["benchEnabled"] != true
+            || !automation::bench_swap_open(&live)
             || !live["benchChampions"]
                 .as_array()
                 .is_some_and(|bench| bench.iter().any(|champion| champion["championId"] == id))
         {
             return Err(AppError::new("StaleSession", "Bench availability changed"));
         }
+        let room = snapshot
+            .champ_select
+            .pointer("/chatDetails/multiUserChatId")
+            .and_then(Value::as_str)
+            .unwrap_or(&snapshot.session_key);
+        let current = |state: &State| {
+            state.snapshot.session_key == snapshot.session_key
+                && state.snapshot.aram_revision == snapshot.aram_revision
+                && !token.is_cancelled()
+                && automation::bench_candidates(&state.snapshot).contains(&id)
+        };
+        if !current(&*self.state.lock().await) {
+            return Err(AppError::new("StaleSession", "Champion preference changed"));
+        }
+        // Preferences can be chosen before the bench opens, so a champion this
+        // account cannot play is skipped without spending its one attempt.
+        let playable = automation::lists_champion(
+            &transport.read(ReadOperation::PickableChampions).await?,
+            id,
+        );
         self.check_write_gate().await?;
         self.checked_session(snapshot.generation, &snapshot.session_key)
             .await?;
         {
             let mut state = self.state.lock().await;
-            if state.snapshot.session_key != snapshot.session_key
-                || state.snapshot.aram_revision != snapshot.aram_revision
-                || token.is_cancelled()
-                || !automation::bench_candidates(&state.snapshot).contains(&id)
-            {
+            if !current(&state) {
                 return Err(AppError::new("StaleSession", "Champion preference changed"));
             }
-            let room = snapshot
-                .champ_select
-                .pointer("/chatDetails/multiUserChatId")
-                .and_then(Value::as_str)
-                .unwrap_or(&snapshot.session_key);
+            if !playable {
+                return Err(AppError::new("Unavailable", "Champion cannot be selected"));
+            }
             if !state.ledger.insert(format!("swap:{room}:{id}")) {
                 return Ok(Value::Null);
             }
@@ -2085,6 +2190,9 @@ mod tests {
             assert!(request.starts_with("GET /lol-champ-select/v1/session"));
             respond(&mut stream, 200, &body);
             let (mut stream, request) = accept_http(&listener, &acceptor);
+            assert!(request.starts_with("GET /lol-champ-select/v1/pickable-champion-ids"));
+            respond(&mut stream, 200, "[1,2]");
+            let (mut stream, request) = accept_http(&listener, &acceptor);
             assert!(request.starts_with("POST /lol-champ-select/v1/session/bench/swap/2"));
             respond(&mut stream, 204, "");
         });
@@ -2099,6 +2207,235 @@ mod tests {
             .await;
         assert!(service.snapshot().await.aram_preferences.is_empty());
         server.join().unwrap();
+    }
+
+    #[tokio::test]
+    async fn bench_preferences_made_during_picks_swap_as_soon_as_the_final_phase_opens() {
+        let (listener, acceptor, port) = fixture_listener();
+        let mut champ = json!({"benchEnabled":true,"allowSubsetChampionPicks":true,"timer":{"phase":"BAN_PICK"},"benchChampions":[{"championId":2}],"chatDetails":{"multiUserChatId":"room"}});
+        let service = fixture_service(port, "ChampSelect").await;
+        {
+            let mut state = service.state.lock().await;
+            state.snapshot.champ_select = champ.clone();
+            state.snapshot.aram_preferences = vec![2];
+        }
+        service
+            .automate(&service.snapshot().await, &json!({}))
+            .await;
+        listener.set_nonblocking(true).unwrap();
+        assert!(
+            matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
+        );
+        assert_eq!(service.snapshot().await.aram_preferences, vec![2]);
+        assert!(service.state.lock().await.ledger.is_empty());
+        listener.set_nonblocking(false).unwrap();
+        champ["timer"]["phase"] = json!("FINALIZATION");
+        let body = champ.to_string();
+        let server = std::thread::spawn(move || {
+            let (mut stream, request) = accept_http(&listener, &acceptor);
+            assert!(request.starts_with("GET /lol-champ-select/v1/session"));
+            respond(&mut stream, 200, &body);
+            let (mut stream, request) = accept_http(&listener, &acceptor);
+            assert!(request.starts_with("GET /lol-champ-select/v1/pickable-champion-ids"));
+            respond(&mut stream, 200, "[2]");
+            let (mut stream, request) = accept_http(&listener, &acceptor);
+            assert!(request.starts_with("POST /lol-champ-select/v1/session/bench/swap/2"));
+            respond(&mut stream, 204, "");
+        });
+        service.state.lock().await.snapshot.champ_select = champ;
+        service
+            .automate(&service.snapshot().await, &json!({}))
+            .await;
+        server.join().unwrap();
+        assert!(service.snapshot().await.aram_preferences.is_empty());
+    }
+
+    #[tokio::test]
+    async fn unplayable_bench_preference_is_skipped_once_for_the_next_choice() {
+        let (listener, acceptor, port) = fixture_listener();
+        let champ = json!({"benchEnabled":true,"benchChampions":[{"championId":1},{"championId":2}],"chatDetails":{"multiUserChatId":"room"}});
+        let body = champ.to_string();
+        let server = std::thread::spawn(move || {
+            for _ in 0..2 {
+                let (mut stream, request) = accept_http(&listener, &acceptor);
+                assert!(request.starts_with("GET /lol-champ-select/v1/session"));
+                respond(&mut stream, 200, &body);
+                let (mut stream, request) = accept_http(&listener, &acceptor);
+                assert!(request.starts_with("GET /lol-champ-select/v1/pickable-champion-ids"));
+                respond(&mut stream, 200, "[2]");
+            }
+            let (mut stream, request) = accept_http(&listener, &acceptor);
+            assert!(request.starts_with("POST /lol-champ-select/v1/session/bench/swap/2"));
+            respond(&mut stream, 204, "");
+        });
+        let service = fixture_service(port, "ChampSelect").await;
+        {
+            let mut state = service.state.lock().await;
+            state.snapshot.champ_select = champ;
+            state.snapshot.aram_preferences = vec![1, 2];
+        }
+        service
+            .automate(&service.snapshot().await, &json!({}))
+            .await;
+        server.join().unwrap();
+        let state = service.state.lock().await;
+        // The unplayable choice is not burned, so it is retried if it becomes playable.
+        assert!(!state.ledger.contains("swap:room:1"));
+        assert!(state.ledger.contains("swap:room:2"));
+        assert!(state.snapshot.aram_preferences.is_empty());
+    }
+
+    fn subset_session() -> Value {
+        json!({"benchEnabled":true,"allowSubsetChampionPicks":true,"timer":{"phase":"BAN_PICK"},
+            "localPlayerCellId":0,"chatDetails":{"multiUserChatId":"room"},
+            "actions":[[{"id":7,"type":"pick","completed":false,"actorCellId":0}]],"benchChampions":[{"championId":9}]})
+    }
+
+    #[tokio::test]
+    async fn subset_pick_completes_the_local_pick_action_and_keeps_bench_preferences() {
+        let (listener, acceptor, port) = fixture_listener();
+        let body = subset_session().to_string();
+        let server = std::thread::spawn(move || {
+            for (path, response) in [
+                ("GET /lol-gameflow/v1/gameflow-phase", "\"ChampSelect\""),
+                ("GET /lol-champ-select/v1/session", body.as_str()),
+                (
+                    "GET /lol-lobby-team-builder/champ-select/v1/subset-champion-list",
+                    "[5,6]",
+                ),
+                ("GET /lol-champ-select/v1/pickable-champion-ids", "[5,6,9]"),
+            ] {
+                let (mut stream, request) = accept_http(&listener, &acceptor);
+                assert!(request.starts_with(path), "{request}");
+                respond(&mut stream, 200, response);
+            }
+            let (mut stream, request) = accept_http(&listener, &acceptor);
+            assert!(request.starts_with("PATCH /lol-champ-select/v1/session/actions/7"));
+            let length: usize = request
+                .lines()
+                .find_map(|line| {
+                    line.to_ascii_lowercase()
+                        .strip_prefix("content-length:")
+                        .map(|v| v.trim().parse().unwrap())
+                })
+                .unwrap();
+            let mut payload = vec![0; length];
+            std::io::Read::read_exact(&mut stream, &mut payload).unwrap();
+            assert_eq!(
+                serde_json::from_slice::<Value>(&payload).unwrap(),
+                json!({"championId":5,"completed":true,"type":"pick"})
+            );
+            respond(&mut stream, 204, "");
+        });
+        let service = fixture_service(port, "ChampSelect").await;
+        {
+            let mut state = service.state.lock().await;
+            state.snapshot.champ_select = subset_session();
+            state.snapshot.aram_preferences = vec![9];
+        }
+        service.pick_subset(5, 0, "fixture").await.unwrap();
+        server.join().unwrap();
+        let snapshot = service.snapshot().await;
+        assert_eq!(snapshot.aram_preferences, vec![9]);
+        assert_eq!(
+            snapshot.last_operation.unwrap().operation,
+            "manualSubsetPick"
+        );
+    }
+
+    #[tokio::test]
+    async fn subset_pick_refuses_champions_that_were_not_offered_without_writing() {
+        let (listener, acceptor, port) = fixture_listener();
+        let body = subset_session().to_string();
+        let server = std::thread::spawn(move || {
+            for response in ["\"ChampSelect\"", body.as_str(), "[6]", "[5,6]"] {
+                let (mut stream, request) = accept_http(&listener, &acceptor);
+                assert!(request.starts_with("GET "));
+                respond(&mut stream, 200, response);
+            }
+            listener
+        });
+        let service = fixture_service(port, "ChampSelect").await;
+        service.state.lock().await.snapshot.champ_select = subset_session();
+        assert_eq!(
+            service.pick_subset(5, 0, "fixture").await.unwrap_err().code,
+            "Unavailable"
+        );
+        let listener = server.join().unwrap();
+        listener.set_nonblocking(true).unwrap();
+        assert!(
+            matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
+        );
+        assert_eq!(
+            service.pick_subset(0, 0, "fixture").await.unwrap_err().code,
+            "InvalidInput"
+        );
+    }
+
+    #[tokio::test]
+    async fn manual_bench_swap_is_refused_before_the_final_phase() {
+        let (listener, acceptor, port) = fixture_listener();
+        let body = subset_session().to_string();
+        let server = std::thread::spawn(move || {
+            for response in ["\"ChampSelect\"", body.as_str(), "[5,6]"] {
+                let (mut stream, _) = accept_http(&listener, &acceptor);
+                respond(&mut stream, 200, response);
+            }
+            listener
+        });
+        let service = fixture_service(port, "ChampSelect").await;
+        {
+            let mut state = service.state.lock().await;
+            state.snapshot.champ_select = subset_session();
+            state.snapshot.aram_preferences = vec![9];
+        }
+        assert_eq!(
+            service.swap_bench(9, 0, "fixture").await.unwrap_err().code,
+            "Unavailable"
+        );
+        let listener = server.join().unwrap();
+        listener.set_nonblocking(true).unwrap();
+        assert!(
+            matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
+        );
+        assert_eq!(service.snapshot().await.aram_preferences, vec![9]);
+    }
+
+    #[tokio::test]
+    async fn own_leftover_champion_can_be_swapped_back_during_the_pick_phase() {
+        let (listener, acceptor, port) = fixture_listener();
+        let mut session = subset_session();
+        session["actions"][0][0]["completed"] = json!(true);
+        session["benchChampions"] = json!([{"championId":9},{"championId":6}]);
+        let body = session.to_string();
+        let server = std::thread::spawn(move || {
+            for (path, response) in [
+                ("GET /lol-gameflow/v1/gameflow-phase", "\"ChampSelect\""),
+                ("GET /lol-champ-select/v1/session", body.as_str()),
+                (
+                    "GET /lol-lobby-team-builder/champ-select/v1/subset-champion-list",
+                    "[5,6]",
+                ),
+                ("GET /lol-champ-select/v1/pickable-champion-ids", "[5,6,9]"),
+            ] {
+                let (mut stream, request) = accept_http(&listener, &acceptor);
+                assert!(request.starts_with(path), "{request}");
+                respond(&mut stream, 200, response);
+            }
+            let (mut stream, request) = accept_http(&listener, &acceptor);
+            assert!(request.starts_with("POST /lol-champ-select/v1/session/bench/swap/6"));
+            respond(&mut stream, 204, "");
+        });
+        let service = fixture_service(port, "ChampSelect").await;
+        {
+            let mut state = service.state.lock().await;
+            state.snapshot.champ_select = session;
+            state.snapshot.aram_preferences = vec![9];
+        }
+        service.swap_bench(6, 0, "fixture").await.unwrap();
+        server.join().unwrap();
+        // Preselections survive a swap between your own offered champions.
+        assert_eq!(service.snapshot().await.aram_preferences, vec![9]);
     }
 
     #[tokio::test]
@@ -2604,6 +2941,9 @@ mod tests {
             let (mut stream, _) = accept_http(&listener, &acceptor);
             respond(&mut stream, 200, &body);
             let (mut stream, request) = accept_http(&listener, &acceptor);
+            assert!(request.starts_with("GET /lol-champ-select/v1/pickable-champion-ids"));
+            respond(&mut stream, 200, "[1,2]");
+            let (mut stream, request) = accept_http(&listener, &acceptor);
             assert!(request.starts_with("POST /lol-champ-select/v1/session/bench/swap/1"));
             respond(&mut stream, 200, "successful-but-not-json");
             listener
@@ -2897,6 +3237,9 @@ mod tests {
         let server = std::thread::spawn(move || {
             let (mut stream, _) = accept_http(&listener, &acceptor);
             respond(&mut stream, 200, &body);
+            let (mut stream, request) = accept_http(&listener, &acceptor);
+            assert!(request.starts_with("GET /lol-champ-select/v1/pickable-champion-ids"));
+            respond(&mut stream, 200, "[1,2]");
             let (mut stream, request) = accept_http(&listener, &acceptor);
             assert!(request.starts_with("POST /lol-champ-select/v1/session/bench/swap/1"));
             seen_tx.send(()).unwrap();

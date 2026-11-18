@@ -77,7 +77,7 @@ export async function measured(feature, work, action=false) {
   try {const result=await work();const status=feature==='terminate'&&Array.isArray(result)&&result.some(item=>!item.terminated)?'partial':'success';trackEvent(action?'action_completed':'lookup_completed',{[action?'action':'feature']:feature,result:status,duration_bucket:durationBucket(Date.now()-start),...(action?{trigger:'manual'}:{})});return result;}
   catch(error){trackEvent('operation_failed',{feature,error_code:errorCode(error),...(action?{trigger:'manual'}:{})});trackEvent(action?'action_completed':'lookup_completed',{[action?'action':'feature']:feature,result:'failed',duration_bucket:durationBucket(Date.now()-start)});throw error;}
 }
-const actions={respond_ready_check:'accept',swap_bench_champion:'bench_swap',write_clipboard:'clipboard',set_aram_preferences:'preferences',set_always_on_top:'always_on_top',terminate_league_processes:'terminate',set_hovercard:'hovercard'};
+const actions={respond_ready_check:'accept',swap_bench_champion:'bench_swap',pick_subset_champion:'subset_pick',write_clipboard:'clipboard',set_aram_preferences:'preferences',set_always_on_top:'always_on_top',terminate_league_processes:'terminate',set_hovercard:'hovercard'};
 const lookups={get_ranked_stats:'ranked',get_live_players:'live_players',get_latest_release:'release',get_champions:'champions',get_champions_balance:'balance'};
 export function instrumentInvoke(invoke) {
   return (name,args)=>{
