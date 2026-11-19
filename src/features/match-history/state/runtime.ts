@@ -63,6 +63,10 @@ export interface TabPage {
   scanned?: number
   /** Raw summaries the client returned but whose complete game could not be read. */
   incomplete: string[]
+  /** The list ends with the player's oldest game (fewer games than asked for). */
+  exhausted?: boolean
+  /** Shown from the disk cache; the newest games are being checked. */
+  fromCache?: boolean
 }
 
 export interface CollectState {
@@ -323,11 +327,60 @@ export class TabRuntime {
     )
   }
 
-  async loadPage(query: PageQuery, options: { force?: boolean } = {}) {
+  /**
+   * First page of a newly opened tab: show the list saved on disk (finished games never
+   * change), then read only the newest games through {@link refreshPage}. Returns false
+   * when nothing usable is cached.
+   */
+  private async restoreCached(query: PageQuery, revision: number): Promise<boolean> {
+    const source = this.source
+    // LCU has no queue tags; a tagged list is SGP only.
+    if (query.startIndex !== 0 || (source === 'lcu' && query.tag)) return false
+    let cached
+    try {
+      cached = await this.api.cachedPage(this.scope, this.ref.puuid, source, query.tag, query.count)
+    } catch {
+      return false
+    }
+    if (revision !== this.pageRevision || !cached?.games?.length) return false
+    const games: LcuOrSgpGameSummary[] = []
+    for (const raw of cached.games) {
+      const game = source === 'sgp' ? toSgpSummary(raw as SgpGameSummary['data']) : toLcuSummary(raw as RawGame)
+      if (!game) return false
+      if (game.source === 'lcu') this.repository.games.set(`lcu:${game.gameId}`, game)
+      games.push(game)
+    }
+    this.set({
+      page: { games, query, source, loadedAt: cached.savedAt, isCollect: false, incomplete: [], exhausted: cached.complete, fromCache: true },
+      pageStatus: 'ready',
+      pageError: null,
+      details: {},
+      detailsLoading: {},
+      detailsError: {}
+    })
+    return true
+  }
+
+  /** Keeps the newest list on disk for the next start (first pages only; best effort). */
+  private saveHead(page: TabPage) {
+    if (page.isCollect || page.query.startIndex !== 0 || page.games.length === 0) return
+    Promise.resolve()
+      .then(() => this.api.saveCachedPage(this.scope, this.ref.puuid, page.source, page.query.tag, page.games.map(gameKey), !!page.exhausted))
+      .catch(() => {})
+  }
+
+  async loadPage(query: PageQuery, options: { force?: boolean } = {}): Promise<void> {
     if (query.count > MATCH_HISTORY_MAX_REGULAR_PAGE_SIZE || query.count < 1 || query.startIndex < 0) {
       throw new Error('Invalid page query')
     }
     if (!options.force && this.isPageCurrent(query, Infinity) && this.data.pageStatus !== 'error') return
+    if (!options.force && !this.data.page && !this.data.collect && query.startIndex === 0) {
+      const revision = ++this.pageRevision
+      this.lastQuery = query
+      this.set({ pageStatus: 'loading', pageError: null })
+      if (await this.restoreCached(query, revision)) return this.refreshPage(query)
+      if (revision !== this.pageRevision) return
+    }
     this.lastQuery = query
     if (this.data.collect) this.stopCollect()
     const revision = ++this.pageRevision
@@ -346,15 +399,18 @@ export class TabRuntime {
         const existing = this.data.details[gameKey(game)]
         if (existing && existing.source === game.source) details[gameKey(game)] = existing
       }
+      const page: TabPage = {
+        games,
+        query: listed.source === 'sgp' ? query : { ...query, tag: undefined },
+        source: listed.source,
+        loadedAt: this.now(),
+        isCollect: false,
+        incomplete: completed.filter(item => !item.complete).map(item => gameKey(item.game)),
+        exhausted: listed.games.length < query.count
+      }
+      this.saveHead(page)
       this.set({
-        page: {
-          games,
-          query: listed.source === 'sgp' ? query : { ...query, tag: undefined },
-          source: listed.source,
-          loadedAt: this.now(),
-          isCollect: false,
-          incomplete: completed.filter(item => !item.complete).map(item => gameKey(item.game))
-        },
+        page,
         pageStatus: 'ready',
         pageError: null,
         details,
@@ -375,7 +431,7 @@ export class TabRuntime {
    * the list (more new games than were read, a different source, a removed game), the whole
    * page is reloaded instead.
    */
-  async refreshPage(query: PageQuery) {
+  async refreshPage(query: PageQuery): Promise<void> {
     const page = this.data.page
     const top = page?.games[0]
     if (!page || !top || query.startIndex !== 0 || this.data.pageStatus !== 'ready' || !this.isPageCurrent(query)) {
@@ -399,13 +455,18 @@ export class TabRuntime {
       const added = completed.map(item => item.game)
       const games = [...added, ...current.games].slice(0, query.count)
       const kept = new Set(games.map(gameKey))
+      const page: TabPage = {
+        ...current,
+        games,
+        loadedAt: this.now(),
+        fromCache: false,
+        // Games pushed off the end mean older ones exist past this list.
+        exhausted: current.exhausted && added.length + current.games.length <= query.count,
+        incomplete: [...completed.filter(item => !item.complete).map(item => gameKey(item.game)), ...current.incomplete.filter(key => kept.has(key))]
+      }
+      if (added.length > 0 || current.fromCache) this.saveHead(page)
       this.set({
-        page: {
-          ...current,
-          games,
-          loadedAt: this.now(),
-          incomplete: [...completed.filter(item => !item.complete).map(item => gameKey(item.game)), ...current.incomplete.filter(key => kept.has(key))]
-        },
+        page,
         pageStatus: 'ready',
         pageError: null
       })

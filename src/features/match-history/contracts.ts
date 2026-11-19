@@ -42,6 +42,15 @@ export type PageDto = MatchHistory & { requested: { begIndex: number; endIndex: 
 export type RawGame = Omit<Game, 'gameId'> & { gameId: string | number }
 export type RawTimeline = GameTimeline
 
+/** A player's newest games from the disk cache: SGP summaries or complete LCU games. */
+export interface CachedPageDto {
+  games: unknown[]
+  /** Milliseconds since the epoch. */
+  savedAt: number
+  /** The list reached the end of the player's history when it was saved. */
+  complete: boolean
+}
+
 export interface ReplayMetadata {
   gameId: number | string
   state: 'checking' | 'found' | 'download' | 'downloading' | 'watch' | 'incompatible' | 'lost' | 'error' | string
@@ -60,14 +69,23 @@ export interface CollectionCountDto {
   currentValue: number
 }
 
-export interface SearchHistoryItem {
+/** A player saved on this computer (favorites, recent searches, the last account). */
+export interface SavedPlayer {
   puuid: string
   platformId: string
   gameName: string
   tagLine: string
   profileIconId?: number | null
-  isPinned?: boolean
 }
+
+export interface SavedPlayersDto {
+  /** The account last signed in to the client; shown while the client is closed. */
+  account: SavedPlayer | null
+  favorites: SavedPlayer[]
+  searchHistory: SavedPlayer[]
+}
+
+export type SavedPlayerAction = 'searchSave' | 'searchDelete' | 'searchClear' | 'favoriteAdd' | 'favoriteRemove' | 'favoriteMove' | 'refreshLabels'
 
 export interface AugmentTextDto {
   entries: Array<{ id: number; tooltip: string; mode?: string }>

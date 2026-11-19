@@ -622,9 +622,19 @@
   "history": "最近搜尋",
   "level": "等級 {{level}}",
   "notFound": "找不到這個 Riot ID",
-  "pin": "置頂",
   "placeholder": "遊戲名稱#標籤",
-  "remove": "移除"
+  "remove": "移除",
+  "favorite": "加入收藏",
+  "unfavorite": "取消收藏",
+  "favorites": "收藏 ({{count}})",
+  "noFavorites": "在玩家頁面按右上角的 ☆ 即可加入收藏",
+  "favoritesFull": "收藏已達上限（50 位）",
+  "favoriteFailed": "收藏失敗：{{code}}",
+  "clearHistory": "清除",
+  "serverHint": "只能查詢目前登入帳號所在的伺服器（{{server}}）",
+  "offlinePlaceholder": "啟動遊戲用戶端後即可搜尋",
+  "launcherTitle": "搜尋與收藏",
+  "dragFavorite": "拖曳調整 {{name}} 的順序"
  },
  "playerTags": {
   "editModal": {
@@ -705,10 +715,12 @@
    "noActiveTab": "當前沒有活躍的戰績頁面",
    "copiedToClipboard": "已複製到剪貼簿",
    "dropZoneRosterMember": "投放以轉到該玩家",
-   "disconnectedHint": "開啟英雄聯盟並登入後，會自動顯示你的戰績。",
    "disconnectedTitle": "尚未連線遊戲用戶端",
    "noTabs": "沒有開啟的玩家",
-   "scrollToTop": "回到頂端"
+   "scrollToTop": "回到頂端",
+   "offlineHint": "戰績資料由遊戲用戶端提供，開啟英雄聯盟並登入後才能查詢。你的帳號與收藏會保存在這台電腦，可以先選好要看的玩家。",
+   "pendingOpen": "已選擇 {{name}}，登入遊戲後會自動開啟。",
+   "myAccount": "我的帳號"
   },
   "profile": {
    "prevPage": "上一頁",

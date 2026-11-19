@@ -31,6 +31,8 @@ import { lifecycle } from '../state/lifecycle'
 import { CHAMPION_MASTERY_TOP_COUNT, gameKey, type TabRuntime } from '../state/runtime'
 import { tabsActions, type PlayerTab, type TabView } from '../state/tabs'
 import { FilterModal } from './FilterModal'
+import { FavoriteButton } from './PlayerSearch'
+import { savedPlayers, toSavedPlayer } from '../state/saved'
 import { HeroSelect } from './HeroSelect'
 import { HeroTabs } from './HeroTabs'
 import { medalImage, RankedTable, unranked } from './RankedTable'
@@ -241,6 +243,12 @@ function PlayerHeader({ tab, runtime, data, wide }: { tab: PlayerTab; runtime: T
   const gameName = summoner?.gameName ?? tab.label.gameName
   const tagLine = summoner?.tagLine ?? tab.label.tagLine
   const loading = data.profile.status === 'loading' || data.ranked.status === 'loading' || data.pageStatus === 'loading'
+  const iconId = summoner?.profileIconId ?? tab.label.profileIconId
+  const saved = useMemo(() => toSavedPlayer(tab.platformId, tab.puuid, { gameName, tagLine, profileIconId: iconId }), [tab.platformId, tab.puuid, gameName, tagLine, iconId])
+  // Fresh names or icon from the client update the saved copies (favorites, recent searches).
+  useEffect(() => {
+    if (summoner && saved) savedPlayers.refreshLabels(saved)
+  }, [summoner, saved])
   const copy = async () => {
     if (!gameName) return
     await desktop.invoke('write_clipboard', { text: `${gameName}#${tagLine}` })
@@ -271,6 +279,7 @@ function PlayerHeader({ tab, runtime, data, wide }: { tab: PlayerTab; runtime: T
       </div>
       <RankedPane data={data} wide={wide} />
       <div className="ml-auto flex justify-end gap-2 pl-4">
+        <FavoriteButton player={saved} size="lg" />
         <button type="button" className="mh-button mh-icon-only size-9" aria-label={t('playerTabs.profile.refreshPage')} title={t('playerTabs.profile.refreshPage')} onClick={() => void runtime.refresh().then(error => (error ? toast.danger(t('playerTabs.profile.refreshFailed', { reason: error })) : toast.success(t('playerTabs.profile.refreshed'))))} disabled={loading}>
           {loading ? <Spinner size={14} /> : <ReloadOutlined />}
         </button>

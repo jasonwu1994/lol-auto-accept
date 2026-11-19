@@ -471,3 +471,42 @@
 .mh-scroll-x::-webkit-scrollbar { height: 4px; }
 .mh-scroll::-webkit-scrollbar-thumb, .mh-scroll-x::-webkit-scrollbar-thumb { border-radius: 999px; background: var(--mh-scrollbar); }
 .mh-scroll::-webkit-scrollbar-thumb:hover { background: var(--mh-scrollbar-hover); }
+
+/* Saved players: favorites, recent searches, the offline home. */
+.mh-search-panel { max-height: calc(100% - 16px); overflow-y: auto; }
+.mh-player-row { padding: 4px 6px 4px 10px; }
+.mh-player-row-main {
+  display: flex; flex: 1; min-width: 0; align-items: center; gap: 8px; padding: 2px 0;
+  border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer;
+}
+.mh-player-row-main:disabled { cursor: default; opacity: 0.55; }
+/* Favorites order: same drag motion as the app's page list (theme.css .app-nav-sort-row). */
+.mh-favorite-list { position: relative; display: flex; flex-direction: column; gap: 4px; }
+.mh-favorite-row {
+  position: relative; padding-left: 2px;
+  transition: transform 240ms cubic-bezier(.22,1,.36,1), background-color 180ms ease, box-shadow 240ms ease;
+  will-change: transform;
+}
+.mh-favorite-row.is-dragging, .mh-favorite-row.is-settling {
+  z-index: 2; background: var(--default-hover);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25), inset 0 0 0 1px var(--accent);
+}
+.mh-favorite-row.is-dragging { transition: none; }
+.mh-favorite-list.just-sorted .mh-favorite-row { transition: none; }
+.mh-drag-handle {
+  display: grid; place-items: center; flex: none; width: 22px; height: 32px; padding: 0;
+  border: 0; border-radius: 5px; background: transparent; color: var(--muted); cursor: grab; touch-action: none;
+}
+.mh-drag-handle:hover { color: var(--foreground); background: var(--default-hover); }
+.mh-drag-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.mh-favorite-list.is-dragging, .mh-favorite-list.is-dragging .mh-drag-handle { cursor: grabbing; }
+.mh-icon-button.mh-favorite-on, .mh-button.mh-favorite-on, .mh-icon-button.mh-favorite-on:hover:not(:disabled) { color: #f5b400 !important; }
+.mh-server-chip {
+  display: inline-flex; align-items: center; flex-shrink: 0; padding: 1px 6px; border-radius: 6px;
+  background: var(--default); font-size: 11px; font-weight: 600; line-height: 18px; white-space: nowrap;
+}
+.mh-link-button { padding: 0; border: 0; background: transparent; color: inherit; text-decoration: underline; cursor: pointer; }
+.mh-offline { display: flex; flex: 1; min-height: 0; justify-content: center; overflow-y: auto; padding: 24px 16px; }
+.mh-offline-inner { display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 480px; }
+.mh-offline-banner { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-radius: 12px; background: var(--default); }
+.mh-offline-pending { padding: 8px 12px; border-radius: 10px; border: 1px dashed currentColor; font-size: 13px; opacity: 0.85; }

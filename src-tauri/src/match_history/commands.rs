@@ -1,4 +1,7 @@
-use super::{ReplayGameMeta, store::SearchItem};
+use super::{
+    ReplayGameMeta,
+    store::{Saved, SearchItem},
+};
 use crate::{
     AppState,
     error::{AppError, AppResult},
@@ -152,6 +155,45 @@ pub async fn get_match_history_sgp_details(
     service.sgp_details(&scope, &game_id).await
 }
 
+/// The player's newest games from the disk cache, or `null` (see `cached_page`).
+#[tauri::command]
+pub async fn get_match_history_cached_page(
+    window: tauri::WebviewWindow,
+    state: State<'_, AppState>,
+    scope: String,
+    puuid: String,
+    source: String,
+    tag: Option<String>,
+    count: u32,
+) -> AppResult<Value> {
+    guard(&window)?;
+    let service = &state.match_history;
+    let scope = service.scope(&scope).await?;
+    service
+        .cached_page(&scope, &puuid, &source, tag, count.min(200) as usize)
+        .await
+}
+
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+pub async fn save_match_history_cached_page(
+    window: tauri::WebviewWindow,
+    state: State<'_, AppState>,
+    scope: String,
+    puuid: String,
+    source: String,
+    tag: Option<String>,
+    game_ids: Vec<String>,
+    complete: bool,
+) -> AppResult<()> {
+    guard(&window)?;
+    let service = &state.match_history;
+    let scope = service.scope(&scope).await?;
+    service
+        .save_cached_page(&scope, &puuid, &source, tag, game_ids, complete)
+        .await
+}
+
 #[tauri::command]
 pub async fn get_match_history_collection(
     window: tauri::WebviewWindow,
@@ -243,36 +285,44 @@ pub async fn run_match_replay_action(
 }
 
 #[tauri::command]
-pub fn get_match_history_search_history(
+pub fn get_match_history_saved(
     window: tauri::WebviewWindow,
     state: State<'_, AppState>,
-) -> AppResult<Vec<SearchItem>> {
+) -> AppResult<Saved> {
     guard(&window)?;
     Ok(state
         .match_history
         .store
         .lock()
         .map_err(|_| lock_error())?
-        .search_history())
+        .saved())
 }
 
+/// Saved-player changes: search history, favorites and refreshed labels. Works while
+/// the client is closed; nothing here reads the client.
 #[tauri::command]
-pub fn update_match_history_search_history(
+pub fn update_match_history_saved(
     window: tauri::WebviewWindow,
     state: State<'_, AppState>,
     action: String,
-    item: SearchItem,
-) -> AppResult<Vec<SearchItem>> {
+    item: Option<SearchItem>,
+    index: Option<u32>,
+) -> AppResult<Saved> {
     guard(&window)?;
     let mut store = state.match_history.store.lock().map_err(|_| lock_error())?;
+    let item = || {
+        item.clone()
+            .ok_or_else(|| AppError::new("InvalidInput", "A player is required"))
+    };
     match action.as_str() {
-        "save" => store.save_search(item),
-        "delete" => store.delete_search(&item.platform_id, &item.puuid),
-        "pin" => store.toggle_pin(&item.platform_id, &item.puuid),
-        _ => Err(AppError::new(
-            "InvalidInput",
-            "Unknown search history action",
-        )),
+        "searchSave" => store.save_search(item()?),
+        "searchDelete" => store.delete_search(&item()?),
+        "searchClear" => store.clear_search(),
+        "favoriteAdd" => store.add_favorite(item()?),
+        "favoriteRemove" => store.remove_favorite(&item()?),
+        "favoriteMove" => store.move_favorite(&item()?, index.unwrap_or(0) as usize),
+        "refreshLabels" => store.refresh_labels(item()?),
+        _ => Err(AppError::new("InvalidInput", "Unknown saved player action")),
     }
 }
 

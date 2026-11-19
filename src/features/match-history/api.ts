@@ -1,6 +1,7 @@
 import { desktop } from '../../desktop/tauri'
 import type {
   AugmentTextDto,
+  CachedPageDto,
   CollectionCountDto,
   GameDataKind,
   MatchHistoryContextDto,
@@ -10,7 +11,9 @@ import type {
   RawTimeline,
   ReplayMetadata,
   ReplayStateDto,
-  SearchHistoryItem
+  SavedPlayer,
+  SavedPlayerAction,
+  SavedPlayersDto
 } from './contracts'
 import type { RankedStats } from './upstream/types/league-client/ranked'
 import type { Mastery, PlayerChampionMastery } from './upstream/types/league-client/champion-mastery'
@@ -34,6 +37,11 @@ export function createMatchHistoryApi(invoke: Invoke) {
       invoke<SgpMatchHistoryLol>('get_match_history_sgp_page', { scope, puuid, startIndex, count, tag: tag ?? null }),
     sgpDetails: (scope: string, gameId: string) =>
       invoke<SgpGameDetailsLol>('get_match_history_sgp_details', { scope, gameId }),
+    /** The player's newest games as last saved on disk, or null when they are not all cached. */
+    cachedPage: (scope: string, puuid: string, source: 'lcu' | 'sgp', tag: string | undefined, count: number) =>
+      invoke<CachedPageDto | null>('get_match_history_cached_page', { scope, puuid, source, tag: tag ?? null, count }),
+    saveCachedPage: (scope: string, puuid: string, source: 'lcu' | 'sgp', tag: string | undefined, gameIds: string[], complete: boolean) =>
+      invoke<void>('save_match_history_cached_page', { scope, puuid, source, tag: tag ?? null, gameIds, complete }),
     collection: (scope: string, puuid: string) =>
       invoke<CollectionCountDto[]>('get_match_history_collection', { scope, puuid }),
     game: (scope: string, gameId: string) => invoke<RawGame>('get_match_history_game', { scope, gameId }),
@@ -50,9 +58,10 @@ export function createMatchHistoryApi(invoke: Invoke) {
     ) => invoke<ReplayMetadata>('create_match_replay_metadata', { scope, gameId, meta }),
     replayAction: (scope: string, gameId: string, action: 'download' | 'watch') =>
       invoke<ReplayMetadata>('run_match_replay_action', { scope, gameId, action }),
-    searchHistory: () => invoke<SearchHistoryItem[]>('get_match_history_search_history'),
-    updateSearchHistory: (action: 'save' | 'delete' | 'pin', item: SearchHistoryItem) =>
-      invoke<SearchHistoryItem[]>('update_match_history_search_history', { action, item })
+    /** Saved players live on this computer and work while the client is closed. */
+    saved: () => invoke<SavedPlayersDto>('get_match_history_saved'),
+    updateSaved: (action: SavedPlayerAction, item?: SavedPlayer, index?: number) =>
+      invoke<SavedPlayersDto>('update_match_history_saved', { action, item: item ?? null, index: index ?? null })
   }
 }
 

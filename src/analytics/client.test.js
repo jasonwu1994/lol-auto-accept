@@ -26,8 +26,9 @@ it('deduplicates automatic results and respects native status casing',()=>{
  expect(events().find(e=>e.name==='automation_completed').params.result).toBe('success');
 });
 it('counts no engagement while hidden and stores only successful config changes',()=>{
- stops.push(client.startAnalytics());document.visibilityState='hidden';client.heartbeat();
- expect(events().filter(e=>e.name==='screen_engagement')).toHaveLength(0);
+ // Starting runs a heartbeat while still visible, which may count a millisecond; only what follows hiding matters.
+ stops.push(client.startAnalytics());const before=events().length;document.visibilityState='hidden';client.heartbeat();
+ expect(events().slice(before).filter(e=>e.name==='screen_engagement')).toHaveLength(0);
  client.trackSettings({designTheme:'default',windowPosition:{x:1}},{designTheme:'mint',windowPosition:{x:2}});
  expect(events().filter(e=>e.name==='appearance_changed').map(e=>e.params.value)).toEqual(['mint']);
  expect(JSON.stringify(events())).not.toContain('windowPosition');

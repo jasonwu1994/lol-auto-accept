@@ -624,9 +624,19 @@
   "history": "Recent searches",
   "level": "Level {{level}}",
   "notFound": "No player has this Riot ID",
-  "pin": "Pin",
   "placeholder": "Name#Tag",
-  "remove": "Remove"
+  "remove": "Remove",
+  "favorite": "Add to favorites",
+  "unfavorite": "Remove from favorites",
+  "favorites": "Favorites ({{count}})",
+  "noFavorites": "Press ☆ at the top right of a player page to add a favorite",
+  "favoritesFull": "Favorites are full (50 players)",
+  "favoriteFailed": "Could not update favorites: {{code}}",
+  "clearHistory": "Clear",
+  "serverHint": "Search covers only the server of the signed-in account ({{server}})",
+  "offlinePlaceholder": "Start the game client to search",
+  "launcherTitle": "Search & favorites",
+  "dragFavorite": "Drag to reorder {{name}}"
  },
  "playerTags": {
   "editModal": {
@@ -707,10 +717,12 @@
    "noActiveTab": "No active match history tab",
    "copiedToClipboard": "Copied to clipboard",
    "dropZoneRosterMember": "Drop here to navigate to the player's profile",
-   "disconnectedHint": "Open League of Legends and sign in to see your match history.",
    "disconnectedTitle": "Not connected to the League client",
    "noTabs": "No players open",
-   "scrollToTop": "Back to top"
+   "scrollToTop": "Back to top",
+   "offlineHint": "Match history comes from the game client, so League must be running and signed in to load it. Your account and favorites are saved on this computer, so you can pick a player now.",
+   "pendingOpen": "{{name}} will open after you sign in to the game.",
+   "myAccount": "My account"
   },
   "profile": {
    "prevPage": "Previous",

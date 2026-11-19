@@ -28,7 +28,7 @@ import { RadarChart } from './charts'
 export const MATCH_CARD_COLLAPSED_HEIGHT_PX = 116
 
 export interface PlayerLink {
-  (puuid: string, activate?: boolean, label?: { gameName?: string; tagLine?: string }): void
+  (puuid: string, activate?: boolean, label?: { gameName?: string; tagLine?: string; profileIconId?: number }): void
 }
 
 export interface MatchCardProps {

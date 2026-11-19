@@ -5,6 +5,7 @@
 //! the frontend never supplies a host, method or raw path.
 
 pub mod assets;
+pub mod cache;
 pub mod commands;
 pub mod sgp;
 pub mod store;
@@ -219,6 +220,33 @@ pub fn merge_pages(pages: Vec<Value>) -> AppResult<Value> {
     Ok(merged)
 }
 
+fn cache_now() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_secs() as i64)
+}
+
+/// The saved form of the signed-in summoner; `None` without a PUUID, Riot ID or platform.
+pub fn account_item(me: &Value, platform: &str) -> Option<store::SearchItem> {
+    let text = |key: &str| me[key].as_str().filter(|value| !value.is_empty());
+    let puuid = text("puuid")?;
+    let game_name = text("gameName")?;
+    if platform.is_empty() {
+        return None;
+    }
+    Some(store::SearchItem {
+        puuid: puuid.to_owned(),
+        platform_id: platform.to_owned(),
+        game_name: game_name.to_owned(),
+        tag_line: text("tagLine").unwrap_or_default().to_owned(),
+        profile_icon_id: me["profileIconId"]
+            .as_u64()
+            .or_else(|| me["profileIconId"].as_str()?.parse().ok())
+            .and_then(|id| u32::try_from(id).ok()),
+        is_pinned: false,
+    })
+}
+
 /// Normalizes the client region / RSO platform into the server ID used as part of tab keys.
 pub fn server_id(region: &str, rso_platform: &str) -> String {
     let region = region.to_ascii_uppercase();
@@ -265,7 +293,10 @@ pub struct MatchHistoryService {
     replays: Semaphore,
     game_data: Mutex<HashMap<(u64, String), Value>>,
     sgp_client: reqwest::Client,
-    sgp_server: Mutex<Option<(u64, Option<sgp::Server>)>>,
+    /// Server ID of the connected client, per connection generation.
+    platform: Mutex<Option<(u64, String)>>,
+    /// Finished games on disk; `None` when the cache file cannot be opened.
+    cache: Option<std::sync::Mutex<cache::GameCache>>,
     augment_text: Mutex<AugmentText>,
     pub assets: assets::AssetCache,
     pub store: std::sync::Mutex<store::HistoryPreferences>,
@@ -276,6 +307,7 @@ impl MatchHistoryService {
         lcu: Arc<LcuService>,
         cache_dir: std::path::PathBuf,
         store_path: std::path::PathBuf,
+        games_path: std::path::PathBuf,
     ) -> AppResult<Self> {
         let public = reqwest::Client::builder()
             .user_agent("lol-auto-accept")
@@ -291,7 +323,11 @@ impl MatchHistoryService {
         Ok(Self {
             lcu,
             sgp_client,
-            sgp_server: Mutex::new(None),
+            platform: Mutex::new(None),
+            // A cache that cannot open only costs network reads; it never blocks the app.
+            cache: cache::GameCache::open(&games_path)
+                .ok()
+                .map(std::sync::Mutex::new),
             public: public.clone(),
             games: Semaphore::new(GAME_CONCURRENCY),
             timelines: Semaphore::new(TIMELINE_CONCURRENCY),
@@ -359,6 +395,7 @@ impl MatchHistoryService {
         let region_code = region["region"].as_str().unwrap_or_default();
         let rso_platform = rso["currentPlatformId"].as_str().unwrap_or_default();
         let platform = server_id(region_code, rso_platform);
+        self.remember_account(&me, &platform);
         Ok(json!({
             "connected": true,
             "scope": scope.token(),
@@ -380,6 +417,17 @@ impl MatchHistoryService {
                 }
             }
         }))
+    }
+
+    /// Keeps the signed-in account for the page shown while the client is closed.
+    /// Best effort: a failed save never blocks the page.
+    fn remember_account(&self, me: &Value, platform: &str) {
+        let Some(item) = account_item(me, platform) else {
+            return;
+        };
+        if let Ok(mut store) = self.store.lock() {
+            let _ = store.set_account(item);
+        }
     }
 
     pub async fn profile(&self, scope: &ReadScope, puuid: &str) -> AppResult<Value> {
@@ -461,11 +509,17 @@ impl MatchHistoryService {
     }
 
     pub async fn game(&self, scope: &ReadScope, game_id: &str) -> AppResult<Value> {
-        self.get(scope, HistoryRead::Game(game_id.into())).await
+        self.cached_game(scope, "lcu", cache::Kind::Game, game_id, || {
+            self.get(scope, HistoryRead::Game(game_id.into()))
+        })
+        .await
     }
 
     pub async fn timeline(&self, scope: &ReadScope, game_id: &str) -> AppResult<Value> {
-        self.get(scope, HistoryRead::Timeline(game_id.into())).await
+        self.cached_game(scope, "lcu", cache::Kind::Timeline, game_id, || {
+            self.get(scope, HistoryRead::Timeline(game_id.into()))
+        })
+        .await
     }
 
     pub async fn search(
@@ -510,24 +564,162 @@ impl MatchHistoryService {
         Ok(value)
     }
 
-    /// SGP server of the connected client, derived once per connection generation.
+    /// Server ID of the connected client (SGP server and cache key), derived once per
+    /// connection generation.
+    async fn platform(&self, scope: &ReadScope) -> AppResult<String> {
+        let mut cached = self.platform.lock().await;
+        if let Some((generation, platform)) = cached.as_ref()
+            && *generation == scope.generation
+        {
+            return Ok(platform.clone());
+        }
+        let region = self.get(scope, HistoryRead::RegionLocale).await?;
+        let rso = self.optional(scope, HistoryRead::RsoAuthorization).await;
+        let id = server_id(
+            region["region"].as_str().unwrap_or_default(),
+            rso["currentPlatformId"].as_str().unwrap_or_default(),
+        );
+        *cached = Some((scope.generation, id.clone()));
+        Ok(id)
+    }
+
     async fn sgp_server(&self, scope: &ReadScope) -> AppResult<sgp::Server> {
-        let mut cached = self.sgp_server.lock().await;
-        let server = match *cached {
-            Some((generation, server)) if generation == scope.generation => server,
-            _ => {
-                let region = self.get(scope, HistoryRead::RegionLocale).await?;
-                let rso = self.optional(scope, HistoryRead::RsoAuthorization).await;
-                let id = server_id(
-                    region["region"].as_str().unwrap_or_default(),
-                    rso["currentPlatformId"].as_str().unwrap_or_default(),
-                );
-                let server = sgp::Server::find(&id);
-                *cached = Some((scope.generation, server));
-                server
-            }
+        let platform = self.platform(scope).await?;
+        sgp::Server::find(&platform)
+            .ok_or_else(|| AppError::new("Unsupported", "No SGP server is known for this region"))
+    }
+
+    fn cache_get(
+        &self,
+        platform: &str,
+        source: &str,
+        kind: cache::Kind,
+        id: &str,
+    ) -> Option<Value> {
+        let cache = self.cache.as_ref()?.lock().ok()?;
+        cache.get(platform, source, kind, id).ok().flatten()
+    }
+
+    fn cache_put(&self, platform: &str, source: &str, kind: cache::Kind, id: &str, value: &Value) {
+        if platform.is_empty() {
+            return;
+        }
+        if let Some(Ok(mut cache)) = self.cache.as_ref().map(|cache| cache.lock()) {
+            let _ = cache.put(platform, source, kind, id, value);
+        }
+    }
+
+    /// A finished game read through the disk cache: cached copies are returned as-is,
+    /// fresh reads are stored.
+    async fn cached_game<F, Fut>(
+        &self,
+        scope: &ReadScope,
+        source: &str,
+        kind: cache::Kind,
+        id: &str,
+        load: F,
+    ) -> AppResult<Value>
+    where
+        F: FnOnce() -> Fut,
+        Fut: std::future::Future<Output = AppResult<Value>>,
+    {
+        numeric_id(id)?;
+        let platform = self.platform(scope).await.unwrap_or_default();
+        if !platform.is_empty()
+            && let Some(value) = self.cache_get(&platform, source, kind, id)
+        {
+            return Ok(value);
+        }
+        let value = load().await?;
+        self.cache_put(&platform, source, kind, id, &value);
+        Ok(value)
+    }
+
+    /// The player's newest games as last saved, when they cover `count` games (or the
+    /// whole history) and every game is still cached; `null` otherwise.
+    pub async fn cached_page(
+        &self,
+        scope: &ReadScope,
+        puuid: &str,
+        source: &str,
+        tag: Option<String>,
+        count: usize,
+    ) -> AppResult<Value> {
+        let (platform, tag) = self.head_key(scope, puuid, source, tag).await?;
+        let Some(cache) = self.cache.as_ref() else {
+            return Ok(Value::Null);
         };
-        server.ok_or_else(|| AppError::new("Unsupported", "No SGP server is known for this region"))
+        let Ok(cache) = cache.lock() else {
+            return Ok(Value::Null);
+        };
+        let Some(head) = cache.head(&platform, puuid, source, &tag).ok().flatten() else {
+            return Ok(Value::Null);
+        };
+        let age = cache_now() - head.saved_at;
+        if !(0..=cache::MAX_HEAD_AGE_SECS).contains(&age)
+            || head.ids.is_empty()
+            || (head.ids.len() < count && !head.complete)
+        {
+            return Ok(Value::Null);
+        }
+        let kind = if source == "sgp" {
+            cache::Kind::Summary
+        } else {
+            cache::Kind::Game
+        };
+        let mut games = Vec::new();
+        for id in head.ids.iter().take(count) {
+            match cache.get(&platform, source, kind, id).ok().flatten() {
+                Some(game) => games.push(game),
+                None => return Ok(Value::Null),
+            }
+        }
+        Ok(json!({"games": games, "savedAt": head.saved_at * 1000, "complete": head.complete}))
+    }
+
+    /// Saves the player's newest game IDs (newest first) as shown by the page.
+    pub async fn save_cached_page(
+        &self,
+        scope: &ReadScope,
+        puuid: &str,
+        source: &str,
+        tag: Option<String>,
+        ids: Vec<String>,
+        complete: bool,
+    ) -> AppResult<()> {
+        let (platform, tag) = self.head_key(scope, puuid, source, tag).await?;
+        if ids.len() > cache::MAX_HEAD_IDS {
+            return Err(AppError::new("InvalidInput", "Too many games"));
+        }
+        for id in &ids {
+            numeric_id(id)?;
+        }
+        if let Some(Ok(mut cache)) = self.cache.as_ref().map(|cache| cache.lock()) {
+            cache.save_head(&platform, puuid, source, &tag, &ids, complete)?;
+        }
+        Ok(())
+    }
+
+    async fn head_key(
+        &self,
+        scope: &ReadScope,
+        puuid: &str,
+        source: &str,
+        tag: Option<String>,
+    ) -> AppResult<(String, String)> {
+        validate_identifier(puuid)?;
+        if !cache::valid_source(source) {
+            return Err(AppError::new("InvalidInput", "Unknown history source"));
+        }
+        let tag = tag.unwrap_or_default();
+        if !tag.is_empty() && !sgp::valid_tag(&tag) {
+            return Err(AppError::new("InvalidInput", "Unknown queue tag"));
+        }
+        let platform = self.platform(scope).await?;
+        if platform.is_empty() {
+            return Err(AppError::new("Unsupported", "The client region is unknown"));
+        }
+        Ok((platform, tag))
     }
 
     async fn sgp_get(&self, scope: &ReadScope, read: sgp::SgpRead) -> AppResult<Value> {
@@ -638,6 +830,19 @@ impl MatchHistoryService {
         if let Some(games) = value["games"].as_array_mut() {
             games.retain(|game| game["json"].is_object());
         }
+        // Finished games' summaries are kept for the next start (see `cached_page`).
+        let platform = self.platform(scope).await.unwrap_or_default();
+        for game in value["games"].as_array().into_iter().flatten() {
+            if let Some(id) = game["json"]["gameId"].as_u64().filter(|id| *id > 0) {
+                self.cache_put(
+                    &platform,
+                    "sgp",
+                    cache::Kind::Summary,
+                    &id.to_string(),
+                    game,
+                );
+            }
+        }
         Ok(value)
     }
 
@@ -646,12 +851,15 @@ impl MatchHistoryService {
         let id = game_id
             .parse::<u64>()
             .map_err(|_| AppError::new("InvalidInput", "A numeric identifier is required"))?;
-        let _permit = self
-            .timelines
-            .acquire()
-            .await
-            .map_err(|_| AppError::new("Internal", "History worker stopped"))?;
-        self.sgp_get(scope, sgp::SgpRead::Details(id)).await
+        self.cached_game(scope, "sgp", cache::Kind::Details, game_id, || async {
+            let _permit = self
+                .timelines
+                .acquire()
+                .await
+                .map_err(|_| AppError::new("Internal", "History worker stopped"))?;
+            self.sgp_get(scope, sgp::SgpRead::Details(id)).await
+        })
+        .await
     }
 
     /// Upstream "assets" (收藏) counts: the collection challenges' current values only,
@@ -921,6 +1129,25 @@ mod tests {
             ]
         );
         assert!(collection_counts(&serde_json::json!({})).is_empty());
+    }
+
+    #[test]
+    fn account_item_needs_identity_and_accepts_string_ids() {
+        let me = json!({"puuid":"p-1","gameName":"Name","tagLine":"TW2","profileIconId":"4568"});
+        let item = account_item(&me, "TW2").unwrap();
+        assert_eq!(item.puuid, "p-1");
+        assert_eq!(item.profile_icon_id, Some(4568));
+        assert_eq!(
+            account_item(
+                &json!({"puuid":"p","gameName":"n","profileIconId":29}),
+                "TW2"
+            )
+            .unwrap()
+            .profile_icon_id,
+            Some(29)
+        );
+        assert!(account_item(&me, "").is_none());
+        assert!(account_item(&json!({"puuid":"p"}), "TW2").is_none());
     }
 
     #[test]

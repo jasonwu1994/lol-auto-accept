@@ -204,7 +204,7 @@ export function PlayerTabStrip({ state, loading, actions, onSearch, onSelf, canO
         <button type="button" className="mh-icon-button" disabled={!canOpenSelf} aria-label={t('playerTabs.titlebar.viewSelf')} title={t('playerTabs.titlebar.viewSelf')} onClick={onSelf}>
           <UserOutlined />
         </button>
-        <button type="button" className={`mh-icon-button ${searchOpen ? 'active' : ''}`} aria-pressed={searchOpen} aria-label={t('playerSearch.title')} title={t('playerSearch.title')} onClick={onSearch}>
+        <button type="button" data-mh-search-toggle className={`mh-icon-button ${searchOpen ? 'active' : ''}`} aria-pressed={searchOpen} aria-label={t('playerSearch.launcherTitle')} title={t('playerSearch.launcherTitle')} onClick={onSearch}>
           <SearchOutlined />
         </button>
       </div>
