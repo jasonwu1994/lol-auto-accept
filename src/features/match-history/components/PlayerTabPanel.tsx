@@ -49,20 +49,26 @@ export const PLAYER_TAB_WIDE_MIN_WIDTH = 1280
 const scrollPositions = new Map<string, number>()
 const RECENTLY_PLAYED_PLAYER_THRESHOLD = 2
 const ENCOUNTERED_GAMES_PAGE_SIZE = 10
+/** Stop function of the scroll animation running on each scroller. */
+const runningScrolls = new WeakMap<HTMLElement, () => void>()
 
 /**
- * Scrolls `element` to the top with an ease-out animation. Done by hand rather than
+ * Scrolls `element` to `target` with an ease-out animation. Done by hand rather than
  * `scrollTo({ behavior: 'smooth' })`, which WebView2 skips when Windows animations are
  * off. A wheel, touch or key press during the animation hands control back.
  */
-function scrollToTop(element: HTMLElement) {
+function scrollToOffset(element: HTMLElement, target: number) {
+  // A new scroll replaces one still running, so two animations never fight.
+  runningScrolls.get(element)?.()
   const start = element.scrollTop
-  if (start <= 0) return
-  const duration = Math.min(700, 300 + start / 20)
+  const distance = Math.max(0, Math.min(target, element.scrollHeight - element.clientHeight)) - start
+  if (Math.abs(distance) < 1) return
+  const duration = Math.min(700, 300 + Math.abs(distance) / 20)
   const began = performance.now()
   let frame = 0
   const stop = () => {
     cancelAnimationFrame(frame)
+    if (runningScrolls.get(element) === stop) runningScrolls.delete(element)
     element.removeEventListener('wheel', stop)
     element.removeEventListener('touchstart', stop)
     element.removeEventListener('keydown', stop)
@@ -70,9 +76,10 @@ function scrollToTop(element: HTMLElement) {
   element.addEventListener('wheel', stop, { passive: true })
   element.addEventListener('touchstart', stop, { passive: true })
   element.addEventListener('keydown', stop)
-  const step = (now: number) => {
+  runningScrolls.set(element, stop)
+  const step =(now: number) => {
     const progress = Math.min(1, (now - began) / duration)
-    element.scrollTop = start * (1 - progress) ** 3
+    element.scrollTop = start + distance * (1 - (1 - progress) ** 3)
     if (progress < 1) frame = requestAnimationFrame(step)
     else stop()
   }
@@ -884,6 +891,7 @@ export function PlayerTabPanel({ tab, scope, me, onOpenPlayer, visible }: { tab:
   const scroller = useRef<HTMLDivElement>(null)
   const container = useRef<HTMLDivElement>(null)
   const sentinel = useRef<HTMLDivElement>(null)
+  const stickyBar = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
   const [stuck, setStuck] = useState(false)
   const [filterOpen, setFilterOpen] = useState(false)
@@ -954,6 +962,23 @@ export function PlayerTabPanel({ tab, scope, me, onOpenPlayer, visible }: { tab:
   )
   const relationship = useMemo(() => analyzeRelationship(filtered, tab.puuid), [filtered, tab.puuid])
 
+  // The game that just ended: open only that card and bring it into view once this tab is shown.
+  useEffect(() => {
+    const focus = data.focus
+    if (!focus || !visible || data.pageStatus !== 'ready') return
+    runtime.clearFocus()
+    if (!filtered.some(game => gameKey(game) === focus)) return
+    setView({ expanded: [focus] })
+    // Wait a frame so the collapsed cards above it have been laid out.
+    requestAnimationFrame(() => {
+      const element = scroller.current
+      const card = element?.querySelector<HTMLElement>(`[data-game-id="${focus}"]`)
+      if (!element || !card) return
+      const offset = (stickyBar.current?.offsetHeight ?? 0) + 16
+      scrollToOffset(element, element.scrollTop + card.getBoundingClientRect().top - element.getBoundingClientRect().top - offset)
+    })
+  }, [data.focus, data.pageStatus, visible, filtered, runtime, setView])
+
   const clearFilters = () => setView({ filters: filters.mode === 'simple' ? { ...filters, simple: clearSimplePredicate(filters.simple) } : { ...filters, advanced: clearPredicate(filters.advanced) } })
   const onPage = (startIndex: number) => {
     const count = Math.min(data.page?.query.count ?? view.pageSize, MATCH_HISTORY_MAX_REGULAR_PAGE_SIZE)
@@ -1014,7 +1039,7 @@ export function PlayerTabPanel({ tab, scope, me, onOpenPlayer, visible }: { tab:
                   {wide && <div className="sticky top-2 w-75">{sidebar}</div>}
                   <div className="min-w-0">
                     {!wide && (
-                      <div className="sticky top-2 z-10 mb-2 flex min-w-0 items-start gap-2">
+                      <div ref={stickyBar} className="sticky top-2 z-10 mb-2 flex min-w-0 items-start gap-2">
                         <button type="button" className="mh-round-button shrink-0" aria-label={t('playerTabs.matchHistory.sidebar.open')} title={t('playerTabs.matchHistory.sidebar.open')} onClick={() => setView({ sidebarOpen: true })}>
                           <MenuUnfoldOutlined />
                         </button>
@@ -1106,7 +1131,7 @@ export function PlayerTabPanel({ tab, scope, me, onOpenPlayer, visible }: { tab:
             variant="primary"
             className="mh-back-top absolute right-8 bottom-8 z-10"
             aria-label={t('playerTabs.shell.scrollToTop')}
-            onPress={() => scroller.current && scrollToTop(scroller.current)}
+            onPress={() => scroller.current && scrollToOffset(scroller.current, 0)}
           >
             <ArrowUpOutlined />
           </Button>

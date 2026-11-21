@@ -131,7 +131,7 @@ export class MatchHistoryLifecycle {
     if (config?.refreshAfterGame === false) return
     const tabs = this.store?.getState().MatchHistoryReducer.tabs ?? []
     for (const tab of tabs) {
-      if (this.gamePlayers.has(tab.puuid)) this.registry.peek(tab.id)?.refreshAfterGame(config?.pageSize ?? 20)
+      if (this.gamePlayers.has(tab.puuid)) void this.registry.peek(tab.id)?.refreshAfterGame(config?.pageSize ?? 20)
     }
   }
 

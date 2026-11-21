@@ -406,7 +406,7 @@ export const MatchCard = memo(function MatchCard(props: MatchCardProps) {
     if (expanded && !details && !loadingDetails && !detailsError) onLoadDetails()
   }, [expanded, details, loadingDetails, detailsError, onLoadDetails])
   return (
-    <div className="mh-card relative w-full" style={{ containIntrinsicSize: `${MATCH_CARD_COLLAPSED_HEIGHT_PX}px` }}>
+    <div className="mh-card relative w-full" data-game-id={props.summary.gameId} style={{ containIntrinsicSize: `${MATCH_CARD_COLLAPSED_HEIGHT_PX}px` }}>
       <Overview model={model} expanded={expanded} onToggle={props.onToggle} open={props.onOpenPlayer} />
       <Collapse open={expanded}>
         <MatchCardDetails

@@ -89,6 +89,8 @@ export interface TabData {
   detailsError: Record<string, string>
   replays: Record<string, ReplayMetadata>
   collect: CollectState | null
+  /** Game key the list should scroll to and open (the game that just ended); cleared once shown. */
+  focus: string | null
 }
 
 export const gameKey = (summary: { gameId: number }) => String(summary.gameId)
@@ -139,7 +141,8 @@ export class TabRuntime {
     detailsLoading: {},
     detailsError: {},
     replays: {},
-    collect: null
+    collect: null,
+    focus: null
   }
   private listeners = new Set<() => void>()
   private pageRevision = 0
@@ -720,14 +723,29 @@ export class TabRuntime {
     return pageError ?? [profile, ranked, mastery, collection].find(resource => resource.status === 'error')?.error ?? null
   }
 
-  /** After a game ends: upstream reloads only when the tab shows the first page. */
-  refreshAfterGame(defaultCount: number) {
+  /**
+   * After a game ends: upstream reloads only when the tab shows the first page. When the
+   * refresh brings in a newer game, it becomes {@link TabData.focus} so the list opens it.
+   */
+  async refreshAfterGame(defaultCount: number): Promise<void> {
     if (this.data.page?.isCollect) return
     const query = this.lastQuery ?? { startIndex: 0, count: defaultCount }
-    if (query.startIndex === 0) {
-      void this.refreshPage(query)
-      void this.loadRanked(true)
-    }
+    if (query.startIndex !== 0) return
+    void this.loadRanked(true)
+    const before = this.data.page?.games[0]?.gameId
+    await this.refreshPage(query)
+    const page = this.data.page
+    const top = page?.games[0]
+    // Another load (queue, page, manual refresh) replaced this one: its list is not ours to judge.
+    if (this.disposed || this.lastQuery !== query || !page || page.isCollect || this.data.pageStatus !== 'ready' || !top) return
+    // New only when the previous newest game now sits below it; a vanished one (reload) is not a new game.
+    const isNew = before === undefined || page.games.findIndex(game => game.gameId === before) > 0
+    if (isNew && top.gameId !== before) this.set({ focus: gameKey(top) })
+  }
+
+  /** The list has shown {@link TabData.focus} (or given up on it). */
+  clearFocus() {
+    if (this.data.focus !== null) this.set({ focus: null })
   }
 }
 
